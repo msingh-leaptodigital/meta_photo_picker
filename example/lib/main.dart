@@ -57,12 +57,12 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
       );
 
       debugPrint('📸 Picked ${photos?.length ?? 0} photos');
-      
+
       if (photos != null && mounted) {
         setState(() {
           _selectedPhotos.addAll(photos);
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Added ${photos.length} photo(s)')),
@@ -104,19 +104,19 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
         preferredAssetRepresentationMode: AssetRepresentationMode.current,
         compressionQuality: 1.0, // No compression
       );
-      
+
       final photo = await _metaPhotoPickerPlugin.pickSinglePhoto(
         config: config,
         context: context, // Pass context for Android
       );
 
       debugPrint('📸 Picked single photo: ${photo?.fileName}');
-      
+
       if (photo != null && mounted) {
         setState(() {
           _selectedPhotos.add(photo);
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Added ${photo.fileName}')),
@@ -179,6 +179,13 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
           : _selectedPhotos.isEmpty
               ? _buildEmptyState()
               : _buildPhotoList(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final status = await _metaPhotoPickerPlugin.checkPhotoAccessStatus();
+          debugPrint('📸 Photo access status F: $status');
+        },
+        child: const Icon(Icons.photo_library),
+      ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -198,9 +205,7 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
               child: ElevatedButton.icon(
                 onPressed: _isLoading ? null : _pickPhotos,
                 icon: const Icon(Icons.photo_library),
-                label: Text(_selectedPhotos.isEmpty
-                    ? 'Select Photos'
-                    : 'Add More Photos'),
+                label: Text(_selectedPhotos.isEmpty ? 'Select Photos' : 'Add More Photos'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.all(16),
                 ),
