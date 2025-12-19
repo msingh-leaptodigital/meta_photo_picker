@@ -33,4 +33,9 @@ abstract class MetaPhotoPickerPlatform extends PlatformInterface {
   Future<List<PhotoInfo>?> pickPhotos({required PickerConfig config}) {
     throw UnimplementedError('pickPhotos() has not been implemented.');
   }
+
+  /// Checks the native photo permission status (Android only)
+  Future<String?> checkPhotoPermission() {
+    throw UnimplementedError('checkPhotoPermission() has not been implemented.');
+  }
 }

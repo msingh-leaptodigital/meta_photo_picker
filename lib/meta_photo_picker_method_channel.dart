@@ -59,4 +59,15 @@ class MethodChannelMetaPhotoPicker extends MetaPhotoPickerPlatform {
       rethrow;
     }
   }
+
+  @override
+  Future<String?> checkPhotoPermission() async {
+    try {
+      final result = await methodChannel.invokeMethod<String>('checkPhotoPermission');
+      return result;
+    } on PlatformException catch (e) {
+      debugPrint('Error checking photo permission: ${e.message}');
+      return null;
+    }
+  }
 }
