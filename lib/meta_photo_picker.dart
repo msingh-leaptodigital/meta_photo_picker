@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 import 'meta_photo_picker_platform_interface.dart';
 import 'models/photo_info.dart';
@@ -10,6 +11,19 @@ import 'models/picker_config.dart';
 
 export 'models/photo_info.dart';
 export 'models/picker_config.dart';
+export 'package:permission_handler/permission_handler.dart' show PermissionStatus;
+
+/// Photo access status enum
+enum PhotoAccessStatus {
+  /// Full access to photo library
+  fullAccess,
+
+  /// Limited access (iOS 14+ only - user selected specific photos)
+  limitedAccess,
+
+  /// No access granted
+  noAccess,
+}
 
 /// Main class for the Meta Photo Picker plugin
 /// 
@@ -100,19 +114,32 @@ class MetaPhotoPicker {
 
     // Request permission for Android only
     // Note: iOS PHPicker doesn't require permission
-    debugPrint('🔐 Requesting photo permission for Android...');
+    debugPrint('🔐 Checking photo permission for Android...');
 
     // For Android 13+ (API 33+), use READ_MEDIA_IMAGES
     // For Android 12 and below, use READ_EXTERNAL_STORAGE
-    final androidInfo = await _getAndroidVersion();
-    final permission = androidInfo >= 33 ? Permission.photos : Permission.storage;
+    final androidVersion = await _getAndroidVersion();
+    final permission = androidVersion >= 33 ? Permission.photos : Permission.storage;
     
-    debugPrint('📱 Android API ${androidInfo >= 33 ? "33+" : "<33"}, using ${androidInfo >= 33 ? "READ_MEDIA_IMAGES" : "READ_EXTERNAL_STORAGE"}');
+    debugPrint('📱 Android API $androidVersion, using ${androidVersion >= 33 ? "READ_MEDIA_IMAGES" : "READ_EXTERNAL_STORAGE"}');
     
-    final status = await permission.request();
-    debugPrint('🔐 Permission status: ${status.name}');
+    // Check current status first
+    var status = await permission.status;
+    debugPrint('🔐 Current permission status: ${status.name}');
+    
+    // If not granted, request it
+    if (!status.isGranted && !status.isLimited && !status.isPermanentlyDenied) {
+      debugPrint('🔐 Requesting permission...');
+      status = await permission.request();
+      debugPrint('🔐 Permission request result: ${status.name}');
+    }
 
-    if (!status.isGranted && !status.isLimited) {
+    // Check if we have any form of access
+    // On Android 11-12, status might be "granted" or "limited"
+    // On Android 13+, we need READ_MEDIA_IMAGES to be granted
+    final hasAccess = status.isGranted || status.isLimited;
+
+    if (!hasAccess) {
       debugPrint('❌ Permission denied or restricted');
 
       if (context.mounted) {
@@ -121,9 +148,10 @@ class MetaPhotoPicker {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Permission Required'),
-            content: const Text(
-              'This app needs access to your photos to select images. '
-              'Please grant permission in settings.',
+            content: Text(
+              status.isPermanentlyDenied
+                  ? 'Photo access was permanently denied. Please enable it in settings to select images.'
+                  : 'This app needs access to your photos to select images. Please grant permission.',
             ),
             actions: [
               TextButton(
@@ -132,21 +160,31 @@ class MetaPhotoPicker {
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Open Settings'),
+                child: Text(status.isPermanentlyDenied ? 'Open Settings' : 'Grant Permission'),
               ),
             ],
           ),
         );
 
         if (shouldOpenSettings == true) {
-          await openAppSettings();
+          if (status.isPermanentlyDenied) {
+            await openAppSettings();
+          } else {
+            // Try requesting again
+            final newStatus = await permission.request();
+            if (!newStatus.isGranted && !newStatus.isLimited) {
+              return null;
+            }
+          }
+        } else {
+          return null;
         }
+      } else {
+        return null;
       }
-
-      return null;
     }
 
-    debugPrint('✅ Permission granted');
+    debugPrint('✅ Permission granted or limited access available');
 
     // Convert filter to RequestType
     RequestType requestType = RequestType.image;
@@ -285,12 +323,122 @@ class MetaPhotoPicker {
     if (!Platform.isAndroid) return 0;
 
     try {
-      // Try to get from device info
-      // For now, we'll assume API 33+ and let permission_handler handle it
-      return 33; // Default to Android 13+
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
+      debugPrint('📱 Detected Android SDK version: $sdkInt');
+      return sdkInt;
     } catch (e) {
-      debugPrint('Error getting Android version: $e');
-      return 33;
+      debugPrint('⚠️ Error getting Android version: $e, defaulting to API 30');
+      return 30; // Default to Android 11 (safer default)
     }
+  }
+
+  /// Check the current photo access status
+  ///
+  /// Returns [PhotoAccessStatus] indicating the current permission state:
+  /// - [PhotoAccessStatus.fullAccess]: User has granted full access
+  /// - [PhotoAccessStatus.limitedAccess]: User has granted limited access (iOS 14+ only)
+  /// - [PhotoAccessStatus.noAccess]: User has denied or not yet granted access
+  ///
+  /// Note: On iOS with PHPicker, this will typically return fullAccess or limitedAccess
+  /// since PHPicker doesn't require explicit permission.
+  ///
+  /// Example:
+  /// ```dart
+  /// final picker = MetaPhotoPicker();
+  /// final status = await picker.checkPhotoAccessStatus();
+  ///
+  /// switch (status) {
+  ///   case PhotoAccessStatus.fullAccess:
+  ///     print('✅ Full access granted');
+  ///     break;
+  ///   case PhotoAccessStatus.limitedAccess:
+  ///     print('⚠️ Limited access (iOS only)');
+  ///     break;
+  ///   case PhotoAccessStatus.noAccess:
+  ///     print('❌ No access');
+  ///     break;
+  /// }
+  /// ```
+  Future<PhotoAccessStatus> checkPhotoAccessStatus() async {
+    if (Platform.isIOS) {
+      // On iOS, check photos permission
+      final status = await Permission.photos.status;
+
+      if (status.isGranted) {
+        return PhotoAccessStatus.fullAccess;
+      } else if (status.isLimited) {
+        return PhotoAccessStatus.limitedAccess;
+      } else {
+        return PhotoAccessStatus.noAccess;
+      }
+    } else if (Platform.isAndroid) {
+      // On Android, check appropriate permission based on version
+      final androidVersion = await _getAndroidVersion();
+      final permission = androidVersion >= 33 ? Permission.photos : Permission.storage;
+      final status = await permission.status;
+
+      if (status.isGranted || status.isLimited) {
+        return PhotoAccessStatus.fullAccess;
+      } else {
+        return PhotoAccessStatus.noAccess;
+      }
+    }
+
+    return PhotoAccessStatus.noAccess;
+  }
+
+  /// Request photo library permission
+  ///
+  /// Returns [PermissionStatus] indicating the result of the permission request.
+  ///
+  /// Note: On iOS with PHPicker, this may not be necessary as PHPicker
+  /// is privacy-preserving and doesn't require explicit permission for basic photo selection.
+  ///
+  /// Example:
+  /// ```dart
+  /// final picker = MetaPhotoPicker();
+  /// final status = await picker.requestPermission();
+  ///
+  /// if (status.isGranted || status.isLimited) {
+  ///   print('✅ Permission granted');
+  /// } else {
+  ///   print('❌ Permission denied');
+  /// }
+  /// ```
+  Future<PermissionStatus> requestPermission() async {
+    if (Platform.isIOS) {
+      return await Permission.photos.request();
+    } else if (Platform.isAndroid) {
+      final androidVersion = await _getAndroidVersion();
+      final permission = androidVersion >= 33 ? Permission.photos : Permission.storage;
+      return await permission.request();
+    }
+
+    return PermissionStatus.denied;
+  }
+
+  /// Check if photo library permission is granted
+  ///
+  /// Returns true if permission is granted (full or limited access), false otherwise.
+  /// This is a convenience method that wraps [checkPhotoAccessStatus].
+  ///
+  /// Example:
+  /// ```dart
+  /// final picker = MetaPhotoPicker();
+  /// final hasPermission = await picker.isPermissionGranted();
+  ///
+  /// if (hasPermission) {
+  ///   // Proceed with photo picking
+  ///   final photos = await picker.pickPhotos(context: context);
+  /// } else {
+  ///   // Request permission first
+  ///   await picker.requestPermission();
+  /// }
+  /// ```
+  Future<bool> isPermissionGranted() async {
+    final status = await checkPhotoAccessStatus();
+    return status == PhotoAccessStatus.fullAccess || status == PhotoAccessStatus.limitedAccess;
   }
 }
