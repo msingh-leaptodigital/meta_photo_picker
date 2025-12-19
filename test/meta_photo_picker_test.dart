@@ -29,9 +29,6 @@ class MockMetaPhotoPickerPlatform
       ),
     ]);
   }
-
-  @override
-  Future<String?> checkPhotoPermission() => Future.value('granted');
 }
 
 void main() {

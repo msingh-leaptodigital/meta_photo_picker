@@ -413,20 +413,17 @@ class MetaPhotoPicker {
         return PhotoAccessStatus.noAccess;
       }
     } else if (Platform.isAndroid) {
-      // On Android, use native method channel to get fresh permission state
-      // This bypasses all caching and gets real-time status from Android system
-      try {
-        final result = await MetaPhotoPickerPlatform.instance.checkPhotoPermission();
-        
-        debugPrint('🔐 Android native permission status: $result');
+      // On Android, use PhotoManager to get fresh permission state
+      // This bypasses permission_handler's cache
+      final state = await PhotoManager.requestPermissionExtend();
+      
+      debugPrint('🔐 Android permission state: ${state.name}');
 
-        if (result == 'granted') {
-          return PhotoAccessStatus.fullAccess;
-        } else {
-          return PhotoAccessStatus.noAccess;
-        }
-      } catch (e) {
-        debugPrint('❌ Error checking permission: $e');
+      if (state == PermissionState.limited) {
+        return PhotoAccessStatus.limitedAccess;
+      } else if (state == PermissionState.authorized) {
+        return PhotoAccessStatus.fullAccess;
+      } else {
         return PhotoAccessStatus.noAccess;
       }
     }
