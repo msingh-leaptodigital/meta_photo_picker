@@ -413,17 +413,15 @@ class MetaPhotoPicker {
         return PhotoAccessStatus.noAccess;
       }
     } else if (Platform.isAndroid) {
-      // On Android, check appropriate permission based on version
-      // This permission IS required for the picker to work
-      final androidVersion = await _getAndroidVersion();
-      final permission = androidVersion >= 33 ? Permission.photos : Permission.storage;
-      final status = await permission.status;
+      // On Android, use PhotoManager to get fresh permission state
+      // This bypasses permission_handler's cache
+      final state = await PhotoManager.requestPermissionExtend();
+      
+      debugPrint('🔐 Android permission state: ${state.name}');
 
-      debugPrint('🔐 Android permission status: ${status.name}');
-
-      if (status.isLimited) {
+      if (state == PermissionState.limited) {
         return PhotoAccessStatus.limitedAccess;
-      } else if (status.isGranted) {
+      } else if (state == PermissionState.authorized) {
         return PhotoAccessStatus.fullAccess;
       } else {
         return PhotoAccessStatus.noAccess;
