@@ -14,14 +14,39 @@ export 'models/picker_config.dart';
 export 'package:permission_handler/permission_handler.dart' show PermissionStatus;
 
 /// Photo access status enum
+///
+/// **CRITICAL: This refers to PHAsset API permission, NOT PHPicker access!**
+///
+/// On iOS:
+/// - PHPicker (used by this plugin) does NOT require photo library permission
+/// - PHPicker always shows ALL photos, regardless of this status
+/// - This enum reflects PHAsset API access (for direct photo library access)
+/// - `limitedAccess` means only selected photos are accessible via PHAsset API
+/// - **PHPicker is NOT affected by this limitation**
+///
+/// On Android:
+/// - Permission IS required for the picker to work
+/// - This enum accurately reflects picker access
 enum PhotoAccessStatus {
   /// Full access to photo library
+  ///
+  /// - **iOS**: Full PHAsset API access (PHPicker always works regardless)
+  /// - **Android**: Full picker access granted
   fullAccess,
 
   /// Limited access (iOS 14+ only - user selected specific photos)
+  ///
+  /// - **iOS**: Limited PHAsset API access, but **PHPicker still shows ALL photos**
+  /// - **Android**: May be returned in rare cases, treated as full access
+  ///
+  /// **Important**: On iOS, this does NOT limit PHPicker. The user will still
+  /// see and can select from ALL photos when using this plugin.
   limitedAccess,
 
   /// No access granted
+  ///
+  /// - **iOS**: No PHAsset API access, but **PHPicker still works and shows ALL photos**
+  /// - **Android**: No picker access - permission required
   noAccess,
 }
 
@@ -341,8 +366,21 @@ class MetaPhotoPicker {
   /// - [PhotoAccessStatus.limitedAccess]: User has granted limited access (iOS 14+ only)
   /// - [PhotoAccessStatus.noAccess]: User has denied or not yet granted access
   ///
-  /// Note: On iOS with PHPicker, this will typically return fullAccess or limitedAccess
-  /// since PHPicker doesn't require explicit permission.
+  /// **IMPORTANT - PHPicker on iOS:**
+  /// - PHPicker does NOT require photo library permission to work
+  /// - PHPicker always shows ALL photos to the user, regardless of permission status
+  /// - The "limited access" status refers to PHAsset API access, NOT PHPicker
+  /// - This method checks PHAsset permission, which is separate from PHPicker
+  /// - You can use PHPicker even when this returns `noAccess` or `limitedAccess`
+  ///
+  /// **Use this method only if:**
+  /// - You need to access PHAsset metadata (not provided by this plugin)
+  /// - You want to show permission status in your UI
+  /// - You're using other photo library features beyond picking
+  ///
+  /// **For Android:**
+  /// - Permission IS required to use the picker
+  /// - This method accurately reflects picker access
   ///
   /// Example:
   /// ```dart
@@ -354,16 +392,17 @@ class MetaPhotoPicker {
   ///     print('✅ Full access granted');
   ///     break;
   ///   case PhotoAccessStatus.limitedAccess:
-  ///     print('⚠️ Limited access (iOS only)');
+  ///     print('⚠️ Limited PHAsset access (iOS only - PHPicker still works!)');
   ///     break;
   ///   case PhotoAccessStatus.noAccess:
-  ///     print('❌ No access');
+  ///     print('❌ No PHAsset access (iOS: PHPicker still works! Android: Need permission)');
   ///     break;
   /// }
   /// ```
   Future<PhotoAccessStatus> checkPhotoAccessStatus() async {
     if (Platform.isIOS) {
-      // On iOS, check photos permission
+      // On iOS, check photos permission (for PHAsset API, NOT PHPicker)
+      // PHPicker works regardless of this permission status
       final status = await Permission.photos.status;
 
       if (status.isGranted) {
@@ -375,11 +414,16 @@ class MetaPhotoPicker {
       }
     } else if (Platform.isAndroid) {
       // On Android, check appropriate permission based on version
+      // This permission IS required for the picker to work
       final androidVersion = await _getAndroidVersion();
       final permission = androidVersion >= 33 ? Permission.photos : Permission.storage;
       final status = await permission.status;
 
-      if (status.isGranted || status.isLimited) {
+      debugPrint('🔐 Android permission status: ${status.name}');
+
+      if (status.isLimited) {
+        return PhotoAccessStatus.limitedAccess;
+      } else if (status.isGranted) {
         return PhotoAccessStatus.fullAccess;
       } else {
         return PhotoAccessStatus.noAccess;
@@ -393,12 +437,23 @@ class MetaPhotoPicker {
   ///
   /// Returns [PermissionStatus] indicating the result of the permission request.
   ///
-  /// Note: On iOS with PHPicker, this may not be necessary as PHPicker
-  /// is privacy-preserving and doesn't require explicit permission for basic photo selection.
+  /// **IMPORTANT - iOS PHPicker:**
+  /// - You do NOT need to call this method to use PHPicker on iOS
+  /// - PHPicker works without any permission and shows ALL photos
+  /// - This method requests PHAsset API permission (for direct library access)
+  /// - Only call this if you need PHAsset metadata beyond what PHPicker provides
+  ///
+  /// **Android:**
+  /// - Permission IS required for the picker to work
+  /// - The plugin automatically requests permission when needed
+  /// - You can call this method to request permission proactively
   ///
   /// Example:
   /// ```dart
   /// final picker = MetaPhotoPicker();
+  /// 
+  /// // On Android: Required for picker
+  /// // On iOS: NOT required for PHPicker (only for PHAsset API)
   /// final status = await picker.requestPermission();
   ///
   /// if (status.isGranted || status.isLimited) {
@@ -424,17 +479,27 @@ class MetaPhotoPicker {
   /// Returns true if permission is granted (full or limited access), false otherwise.
   /// This is a convenience method that wraps [checkPhotoAccessStatus].
   ///
+  /// **IMPORTANT - iOS PHPicker:**
+  /// - This checks PHAsset API permission, NOT PHPicker access
+  /// - PHPicker works even if this returns false
+  /// - You do NOT need to check this before using `pickPhotos()` on iOS
+  ///
+  /// **Android:**
+  /// - This accurately reflects picker access
+  /// - Permission is required for picker to work
+  ///
   /// Example:
   /// ```dart
   /// final picker = MetaPhotoPicker();
+  /// 
+  /// // On iOS: PHPicker works regardless of this check
+  /// // On Android: This check is meaningful for picker access
   /// final hasPermission = await picker.isPermissionGranted();
   ///
   /// if (hasPermission) {
-  ///   // Proceed with photo picking
-  ///   final photos = await picker.pickPhotos(context: context);
+  ///   print('Has PHAsset/Storage permission');
   /// } else {
-  ///   // Request permission first
-  ///   await picker.requestPermission();
+  ///   print('No permission (iOS: PHPicker still works!)');
   /// }
   /// ```
   Future<bool> isPermissionGranted() async {

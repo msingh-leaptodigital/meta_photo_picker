@@ -56,7 +56,7 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
         context: context, // Pass context for Android
       );
 
-      print('📸 Picked ${photos?.length ?? 0} photos');
+      debugPrint('📸 Picked ${photos?.length ?? 0} photos');
       
       if (photos != null && mounted) {
         setState(() {
@@ -70,14 +70,14 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
         }
       }
     } on PlatformException catch (e) {
-      print('❌ Error picking photos: ${e.message}');
+      debugPrint('❌ Error picking photos: ${e.message}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.message}')),
         );
       }
     } catch (e) {
-      print('❌ Unexpected error: $e');
+      debugPrint('❌ Unexpected error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Unexpected error: $e')),
@@ -110,7 +110,7 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
         context: context, // Pass context for Android
       );
 
-      print('📸 Picked single photo: ${photo?.fileName}');
+      debugPrint('📸 Picked single photo: ${photo?.fileName}');
       
       if (photo != null && mounted) {
         setState(() {
@@ -124,14 +124,14 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
         }
       }
     } on PlatformException catch (e) {
-      print('❌ Error picking photo: ${e.message}');
+      debugPrint('❌ Error picking photo: ${e.message}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.message}')),
         );
       }
     } catch (e) {
-      print('❌ Unexpected error: $e');
+      debugPrint('❌ Unexpected error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Unexpected error: $e')),

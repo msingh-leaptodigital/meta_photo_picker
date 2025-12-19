@@ -144,7 +144,7 @@ extension MetaPhotoPickerPlugin: PHPickerViewControllerDelegate {
                 itemProvider.loadObject(ofClass: UIImage.self) { [weak self] image, error in
                     guard let self = self, let image = image as? UIImage else {
                         if let error = error {
-                            print("Error loading image: \(error.localizedDescription)")
+                            NSLog("Error loading image: \(error.localizedDescription)")
                         }
                         group.leave()
                         return
