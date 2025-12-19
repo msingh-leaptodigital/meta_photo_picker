@@ -98,28 +98,18 @@ class MetaPhotoPicker {
       throw ArgumentError('BuildContext is required for Android picker');
     }
 
-    // Request permission using permission_handler
-    debugPrint('🔐 Requesting photo permission...');
+    // Request permission for Android only
+    // Note: iOS PHPicker doesn't require permission
+    debugPrint('🔐 Requesting photo permission for Android...');
 
-    PermissionStatus status;
-
-    // Check Android version and request appropriate permission
-    if (Platform.isAndroid) {
-      // For Android 13+ (API 33+), use READ_MEDIA_IMAGES
-      // For Android 12 and below, use READ_EXTERNAL_STORAGE
-      final androidInfo = await _getAndroidVersion();
-
-      if (androidInfo >= 33) {
-        debugPrint('📱 Android 13+ detected, requesting READ_MEDIA_IMAGES');
-        status = await Permission.photos.request();
-      } else {
-        debugPrint('📱 Android 12 or below detected, requesting READ_EXTERNAL_STORAGE');
-        status = await Permission.storage.request();
-      }
-    } else {
-      status = await Permission.photos.request();
-    }
-
+    // For Android 13+ (API 33+), use READ_MEDIA_IMAGES
+    // For Android 12 and below, use READ_EXTERNAL_STORAGE
+    final androidInfo = await _getAndroidVersion();
+    final permission = androidInfo >= 33 ? Permission.photos : Permission.storage;
+    
+    debugPrint('📱 Android API ${androidInfo >= 33 ? "33+" : "<33"}, using ${androidInfo >= 33 ? "READ_MEDIA_IMAGES" : "READ_EXTERNAL_STORAGE"}');
+    
+    final status = await permission.request();
     debugPrint('🔐 Permission status: ${status.name}');
 
     if (!status.isGranted && !status.isLimited) {

@@ -197,17 +197,10 @@ extension MetaPhotoPickerPlugin: PHPickerViewControllerDelegate {
                     let width = Int(image.size.width)
                     let height = Int(image.size.height)
                     
-                    // Get creation date from asset if available
-                    var creationDate: String?
-                    if let assetId = assetIdentifier {
-                        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
-                        if let asset = fetchResult.firstObject {
-                            if let date = asset.creationDate {
-                                let formatter = ISO8601DateFormatter()
-                                creationDate = formatter.string(from: date)
-                            }
-                        }
-                    }
+                    // Note: We don't fetch creation date from PHAsset to avoid requiring photo library permission
+                    // PHPicker is privacy-preserving and doesn't need permission
+                    // Use current date as fallback
+                    let creationDate = ISO8601DateFormatter().string(from: Date())
                     
                     // Create photo info dictionary
                     let photoInfo: [String: Any] = [
