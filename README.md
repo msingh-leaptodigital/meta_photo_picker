@@ -47,7 +47,8 @@ The plugin returns detailed metadata for each selected photo including file info
 |---------|----------------|--------------------------------|
 | **Permission Required** | ❌ No | ✅ Yes |
 | **Privacy** | ✅ Privacy-preserving | ⚠️ Requires storage access |
-| **Limited Access** | ✅ Supported (iOS 14+) | ❌ Not available |
+| **Limited Access** | ✅ Supported (iOS 14+) | ✅ Supported (Android 14+/API 34+) |
+| **Permission State Updates** | ✅ Immediate | ⚠️ Requires app restart |
 | **UI** | Native iOS picker | Material Design picker |
 | **Selection Speed** | Fast | Fast (optimized) |
 | **Context Required** | ❌ No | ✅ Yes |
@@ -341,6 +342,8 @@ if (status == PhotoAccessStatus.noAccess) {
 - On Android, this checks the actual storage permission status
 - `limitedAccess` is only available on iOS 14+ when user selects specific photos
 
+**⚠️ Android Important:** On Android 14+ (API 34+), the permission state is cached by the system. If a user changes permissions in system settings (from limited to full access or vice versa), the app must be completely terminated and restarted for the new permission state to be reflected. This is Android system behavior - the permission state is stored in the app's process memory and only updates on app restart.
+
 ## 📖 API Reference
 
 ### Configuration Options
@@ -583,6 +586,58 @@ Future<void> pickPhotosWithErrorHandling(BuildContext context) async {
 - ✅ **Version-aware** - Uses `READ_MEDIA_IMAGES` on Android 13+, `READ_EXTERNAL_STORAGE` on older versions
 - ✅ **Direct selection** - Tap to select, no preview needed
 
+#### ⚠️ Android Limited Permission Behavior
+
+**Important:** On Android 14+ (API 34+), when a user grants "Limited Access" (selects specific photos), the permission state is **cached by the system** and will not update until the app session terminates.
+
+**What this means:**
+- If a user initially grants limited access and selects specific photos
+- Then goes to system settings and grants full access
+- The app will **still see limited access** until the app is completely closed and reopened
+- This is Android system behavior, not a plugin limitation
+
+**Workaround:**
+```dart
+final picker = MetaPhotoPicker();
+
+// Check permission status
+final status = await picker.checkPhotoAccessStatus();
+
+if (status == PhotoAccessStatus.limitedAccess) {
+  // Show dialog informing user they need to restart the app
+  // after changing permissions in system settings
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Limited Access'),
+      content: Text(
+        'You have granted limited access. If you change permissions '
+        'in system settings, please close and reopen the app for '
+        'changes to take effect.'
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('OK'),
+        ),
+      ],
+    ),
+  );
+}
+```
+
+**Technical Details:**
+- The permission state is retrieved from `Permission.photos.status` on Android
+- Android caches this state in the app's process memory
+- Only terminating the app process (force stop or app restart) clears this cache
+- This behavior is documented in Android's [photo picker documentation](https://developer.android.com/training/data-storage/shared/photopicker)
+
+**Best Practice:**
+Inform users that if they change photo permissions in system settings, they should:
+1. Completely close the app (swipe away from recent apps)
+2. Reopen the app
+3. The new permission state will then be reflected
+
 ### Memory Considerations
 
 - ⚠️ **Image data in memory** - Each `PhotoInfo` contains full image bytes
@@ -595,7 +650,8 @@ Future<void> pickPhotosWithErrorHandling(BuildContext context) async {
 | Feature | iOS | Android |
 |---------|-----|---------|
 | Permission dialog | ❌ Not shown | ✅ Shown on first use |
-| Limited access | ✅ Supported | ❌ Not available |
+| Limited access | ✅ Supported | ✅ Supported (API 34+) |
+| Permission state refresh | ✅ Immediate | ⚠️ Requires app restart |
 | Context required | ❌ No | ✅ Yes |
 | Live Photos | ✅ Supported | ❌ Falls back to images |
 | Creation date | ⚠️ Fallback to current | ✅ Actual date |
@@ -694,6 +750,9 @@ A: Yes! Use `PickerFilter.videos` or `PickerFilter.any` to include videos. The p
 **Q: Can I customize the picker UI?**
 A: No. Both PHPicker (iOS) and wechat_assets_picker (Android) use system/native UI for consistency and security.
 
+**Q: Why doesn't the permission status update after I change it in Android settings?**
+A: On Android 14+ (API 34+), the permission state is cached by the Android system in the app's process memory. After changing permissions in system settings, you must completely close and reopen the app for the new permission state to be retrieved. This is standard Android behavior, not a plugin limitation. The app needs to be terminated (force stopped or swiped away from recent apps) and relaunched to see the updated permission state.
+
 ## 🔧 Troubleshooting
 
 ### iOS Issues
@@ -720,6 +779,14 @@ A: No. Both PHPicker (iOS) and wechat_assets_picker (Android) use system/native 
 - Update Gradle to 8.0+
 - Update Android Gradle Plugin to 8.1.0+
 - Ensure `minSdkVersion` is 21 or higher
+
+**Permission status not updating after changing in settings**
+- This is expected Android behavior on Android 14+ (API 34+)
+- The permission state is cached in the app's process memory
+- Solution: Completely close the app (force stop or swipe from recent apps) and reopen it
+- The new permission state will be retrieved when the app restarts
+- This affects the `checkPhotoAccessStatus()` method
+- The picker itself will still work, but the status check will show the cached state
 
 ## 🤝 Contributing
 

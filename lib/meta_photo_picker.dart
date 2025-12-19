@@ -228,16 +228,27 @@ class MetaPhotoPicker {
         break;
     }
 
-    debugPrint('📱 Opening picker with maxAssets: ${config.selectionLimit == 0 ? 9999 : config.selectionLimit}');
+    // Use a reasonable default for unlimited selection (9 is common for photo pickers)
+    // This prevents showing large numbers like "1/9999" in the UI
+    final int effectiveMaxAssets = config.selectionLimit == 0 ? 150 : config.selectionLimit;
+
+    debugPrint('📱 Opening picker with maxAssets: $effectiveMaxAssets');
 
     try {
       // Pick assets with custom configuration
       final List<AssetEntity>? assets = await AssetPicker.pickAssets(
         context,
         pickerConfig: AssetPickerConfig(
-          maxAssets: config.selectionLimit == 0 ? 9999 : config.selectionLimit,
+          maxAssets: effectiveMaxAssets,
           requestType: requestType,
           specialPickerType: SpecialPickerType.noPreview, // Disable preview, tap to select
+          // Disable the limited permission dialog by using a custom text delegate
+          textDelegate: const EnglishAssetPickerTextDelegate(),
+          limitedPermissionOverlayPredicate: (PermissionState state) {
+            // Never show the limited permission overlay
+            // The picker will still work with limited access, just won't show the warning
+            return false;
+          },
           selectPredicate: (BuildContext context, AssetEntity asset, bool isSelected) {
             // Allow selection directly
             return true;
@@ -413,15 +424,13 @@ class MetaPhotoPicker {
         return PhotoAccessStatus.noAccess;
       }
     } else if (Platform.isAndroid) {
-      // On Android, use PhotoManager to get fresh permission state
-      // This bypasses permission_handler's cache
-      final state = await PhotoManager.requestPermissionExtend();
+      final state = await Permission.photos.status;
       
       debugPrint('🔐 Android permission state: ${state.name}');
 
-      if (state == PermissionState.limited) {
+      if (state.isLimited) {
         return PhotoAccessStatus.limitedAccess;
-      } else if (state == PermissionState.authorized) {
+      } else if (state.isGranted) {
         return PhotoAccessStatus.fullAccess;
       } else {
         return PhotoAccessStatus.noAccess;
