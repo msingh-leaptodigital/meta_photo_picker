@@ -51,7 +51,10 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
         compressionQuality: 1.0, // No compression
       );
 
-      final photos = await _metaPhotoPickerPlugin.pickPhotos(config: config);
+      final photos = await _metaPhotoPickerPlugin.pickPhotos(
+        config: config,
+        context: context, // Pass context for Android
+      );
 
       print('📸 Picked ${photos?.length ?? 0} photos');
       
@@ -102,7 +105,10 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
         compressionQuality: 1.0, // No compression
       );
       
-      final photo = await _metaPhotoPickerPlugin.pickSinglePhoto(config: config);
+      final photo = await _metaPhotoPickerPlugin.pickSinglePhoto(
+        config: config,
+        context: context, // Pass context for Android
+      );
 
       print('📸 Picked single photo: ${photo?.fileName}');
       
