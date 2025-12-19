@@ -1,7 +1,15 @@
 name: meta_photo_picker
-description: "A Flutter plugin for picking images using PHPicker on iOS with detailed metadata information including file size, dimensions, creation date, and more."
+description: A privacy-first Flutter plugin for picking photos with detailed metadata. Uses PHPicker on iOS (no permission required) and wechat_assets_picker on Android.
 version: 0.0.1
 homepage: https://github.com/yourusername/meta_photo_picker
+repository: https://github.com/yourusername/meta_photo_picker
+issue_tracker: https://github.com/yourusername/meta_photo_picker/issues
+topics:
+  - image-picker
+  - photo-picker
+  - phpicker
+  - image
+  - photos
 
 environment:
   sdk: ^3.1.0
