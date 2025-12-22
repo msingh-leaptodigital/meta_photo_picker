@@ -24,8 +24,11 @@ class PhotoInfo {
   /// Asset identifier from Photos library
   final String? assetIdentifier;
 
-  /// Image data as bytes
-  final List<int> imageData;
+  /// Path to the temporary file
+  final String? filePath;
+
+  /// Image data as bytes (optional, may be null if filePath is used)
+  final List<int>? imageData;
 
   /// Image scale factor
   final double scale;
@@ -42,7 +45,8 @@ class PhotoInfo {
     this.creationDate,
     required this.fileType,
     this.assetIdentifier,
-    required this.imageData,
+    this.filePath,
+    this.imageData,
     required this.scale,
     required this.orientation,
   });
@@ -58,7 +62,8 @@ class PhotoInfo {
       creationDate: json['creationDate'] as String?,
       fileType: json['fileType'] as String,
       assetIdentifier: json['assetIdentifier'] as String?,
-      imageData: List<int>.from(json['imageData'] as List),
+      filePath: json['filePath'] as String?,
+      imageData: json['imageData'] != null ? List<int>.from(json['imageData'] as List) : null,
       scale: (json['scale'] as num).toDouble(),
       orientation: ImageOrientation.fromString(json['orientation'] as String),
     );
@@ -75,6 +80,7 @@ class PhotoInfo {
       'creationDate': creationDate,
       'fileType': fileType,
       'assetIdentifier': assetIdentifier,
+      'filePath': filePath,
       'imageData': imageData,
       'scale': scale,
       'orientation': orientation.toString(),

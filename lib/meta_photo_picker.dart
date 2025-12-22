@@ -287,11 +287,8 @@ class MetaPhotoPicker {
       final file = await asset.file;
       if (file == null) return null;
 
-      // Get image data
-      final bytes = await file.readAsBytes();
-
       // Get file size
-      final fileSize = bytes.length;
+      final fileSize = await file.length();
       final fileSizeFormatted = _formatBytes(fileSize.toDouble());
 
       // Get dimensions
@@ -327,7 +324,8 @@ class MetaPhotoPicker {
         creationDate: creationDate,
         fileType: fileType,
         assetIdentifier: asset.id,
-        imageData: bytes,
+        filePath: file.path,
+        imageData: null, // Don't load bytes into memory
         scale: 1.0,
         orientation: ImageOrientation.up, // Android doesn't provide orientation easily
       );

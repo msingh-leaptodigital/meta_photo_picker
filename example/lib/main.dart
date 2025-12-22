@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:meta_photo_picker/meta_photo_picker.dart';
@@ -293,12 +294,7 @@ class PhotoCard extends StatelessWidget {
           // Image Preview
           GestureDetector(
             onTap: onTap,
-            child: Image.memory(
-              Uint8List.fromList(photo.imageData),
-              height: 200,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
+            child: _buildImage(),
           ),
           // Photo Information
           Padding(
@@ -381,6 +377,35 @@ class PhotoCard extends StatelessWidget {
       return isoDate;
     }
   }
+
+  Widget _buildImage() {
+    if (photo.filePath != null) {
+      return Image.file(
+        File(photo.filePath!),
+        height: 200,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          height: 200,
+          color: Colors.grey[200],
+          child: const Center(child: Icon(Icons.error, color: Colors.red)),
+        ),
+      );
+    } else if (photo.imageData != null) {
+      return Image.memory(
+        Uint8List.fromList(photo.imageData!),
+        height: 200,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    } else {
+      return Container(
+        height: 200,
+        color: Colors.grey[200],
+        child: const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)),
+      );
+    }
+  }
 }
 
 class _InfoChip extends StatelessWidget {
@@ -429,11 +454,29 @@ class PhotoDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Full Image
-            Image.memory(
-              Uint8List.fromList(photo.imageData),
-              width: double.infinity,
-              fit: BoxFit.contain,
-            ),
+            if (photo.filePath != null)
+              Image.file(
+                File(photo.filePath!),
+                width: double.infinity,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 300,
+                  color: Colors.grey[200],
+                  child: const Center(child: Icon(Icons.error, color: Colors.red, size: 48)),
+                ),
+              )
+            else if (photo.imageData != null)
+              Image.memory(
+                Uint8List.fromList(photo.imageData!),
+                width: double.infinity,
+                fit: BoxFit.contain,
+              )
+            else
+              Container(
+                height: 300,
+                color: Colors.grey[200],
+                child: const Center(child: Icon(Icons.image_not_supported, color: Colors.grey, size: 48)),
+              ),
             // Detailed Information
             Padding(
               padding: const EdgeInsets.all(16),

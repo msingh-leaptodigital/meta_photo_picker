@@ -16,6 +16,7 @@ void main() {
         'creationDate': '2024-01-15T10:30:00Z',
         'fileType': 'JPEG',
         'assetIdentifier': 'asset-123',
+        'filePath': '/tmp/test.jpg',
         'imageData': [1, 2, 3, 4, 5],
         'scale': 2.0,
         'orientation': 'Up',
@@ -32,6 +33,7 @@ void main() {
       expect(photoInfo.creationDate, '2024-01-15T10:30:00Z');
       expect(photoInfo.fileType, 'JPEG');
       expect(photoInfo.assetIdentifier, 'asset-123');
+      expect(photoInfo.filePath, '/tmp/test.jpg');
       expect(photoInfo.imageData, [1, 2, 3, 4, 5]);
       expect(photoInfo.scale, 2.0);
       expect(photoInfo.orientation, ImageOrientation.up);
@@ -47,6 +49,7 @@ void main() {
         creationDate: '2024-02-20T15:45:00Z',
         fileType: 'PNG',
         assetIdentifier: 'asset-456',
+        filePath: '/tmp/photo.png',
         imageData: [10, 20, 30],
         scale: 3.0,
         orientation: ImageOrientation.right,
@@ -63,6 +66,7 @@ void main() {
       expect(json['creationDate'], '2024-02-20T15:45:00Z');
       expect(json['fileType'], 'PNG');
       expect(json['assetIdentifier'], 'asset-456');
+      expect(json['filePath'], '/tmp/photo.png');
       expect(json['imageData'], [10, 20, 30]);
       expect(json['scale'], 3.0);
       expect(json['orientation'], 'Right');
@@ -76,7 +80,6 @@ void main() {
         fileSize: '1 KB',
         dimensions: PhotoDimensions(width: 1920, height: 1080),
         fileType: 'JPEG',
-        imageData: [],
         scale: 1.0,
         orientation: ImageOrientation.up,
       );

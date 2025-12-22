@@ -2,6 +2,8 @@ import Flutter
 import UIKit
 import PhotosUI
 import Photos
+import UniformTypeIdentifiers
+import ImageIO
 
 public class MetaPhotoPickerPlugin: NSObject, FlutterPlugin {
     private var flutterResult: FlutterResult?
@@ -105,18 +107,31 @@ public class MetaPhotoPickerPlugin: NSObject, FlutterPlugin {
         }
     }
     
-    private func orientationString(_ orientation: UIImage.Orientation) -> String {
+    private func orientationString(_ orientation: Int) -> String {
         switch orientation {
-        case .up: return "Up"
-        case .down: return "Down"
-        case .left: return "Left"
-        case .right: return "Right"
-        case .upMirrored: return "UpMirrored"
-        case .downMirrored: return "DownMirrored"
-        case .leftMirrored: return "LeftMirrored"
-        case .rightMirrored: return "RightMirrored"
-        @unknown default: return "Unknown"
+        case 1: return "Up"
+        case 2: return "UpMirrored"
+        case 3: return "Down"
+        case 4: return "DownMirrored"
+        case 5: return "LeftMirrored"
+        case 6: return "Right"
+        case 7: return "RightMirrored"
+        case 8: return "Left"
+        default: return "Up"
         }
+    }
+    
+    private func getFileType(from typeIdentifier: String) -> String {
+        if typeIdentifier.lowercased().contains("png") {
+            return "PNG"
+        } else if typeIdentifier.lowercased().contains("heic") {
+            return "HEIC"
+        } else if typeIdentifier.lowercased().contains("gif") {
+            return "GIF"
+        } else if typeIdentifier.lowercased().contains("jpeg") || typeIdentifier.lowercased().contains("jpg") {
+            return "JPEG"
+        }
+        return "JPEG"
     }
 }
 
@@ -130,106 +145,180 @@ extension MetaPhotoPickerPlugin: PHPickerViewControllerDelegate {
             return
         }
         
-        let compressionQuality = (pickerConfig?["compressionQuality"] as? Double) ?? 0.8
         let group = DispatchGroup()
+        let dataQueue = DispatchQueue(label: "com.metaphotopicker.dataQueue")
         var photoInfoList: [[String: Any]] = []
+        // Limit concurrency to avoid memory spikes
+        let semaphore = DispatchSemaphore(value: 3)
         
-        for result in results {
-            group.enter()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
             
-            let itemProvider = result.itemProvider
-            let assetIdentifier = result.assetIdentifier
-            
-            if itemProvider.canLoadObject(ofClass: UIImage.self) {
-                itemProvider.loadObject(ofClass: UIImage.self) { [weak self] image, error in
-                    guard let self = self, let image = image as? UIImage else {
-                        if let error = error {
-                            NSLog("Error loading image: \(error.localizedDescription)")
-                        }
-                        group.leave()
-                        return
-                    }
-                    
-                    // Get file name
-                    var fileName = "Unknown"
-                    if let suggestedName = itemProvider.suggestedName {
-                        fileName = suggestedName
-                    } else {
-                        fileName = "Image_\(Date().timeIntervalSince1970).jpg"
-                    }
-                    
-                    // Get file type
-                    var fileType = "JPEG"
-                    if let typeIdentifier = itemProvider.registeredTypeIdentifiers.first {
-                        if typeIdentifier.contains("png") {
-                            fileType = "PNG"
-                        } else if typeIdentifier.contains("heic") {
-                            fileType = "HEIC"
-                        } else if typeIdentifier.contains("gif") {
-                            fileType = "GIF"
-                        } else if typeIdentifier.contains("jpeg") || typeIdentifier.contains("jpg") {
-                            fileType = "JPEG"
+            for result in results {
+                group.enter()
+                semaphore.wait()
+                
+                self.processResult(result) { info in
+                    if let info = info {
+                        dataQueue.sync {
+                            photoInfoList.append(info)
                         }
                     }
-                    
-                    // Convert image to data without compression
-                    var imageData: Data?
-                    if fileType == "PNG" {
-                        imageData = image.pngData()
-                    } else if fileType == "HEIC" {
-                        // For HEIC, try to get original data first
-                        imageData = image.jpegData(compressionQuality: 1.0)
-                    } else {
-                        // For JPEG and others, use maximum quality (no compression)
-                        imageData = image.jpegData(compressionQuality: 1.0)
-                    }
-                    
-                    guard let data = imageData else {
-                        group.leave()
-                        return
-                    }
-                    
-                    // Calculate file size
-                    let bytes = Double(data.count)
-                    let fileSize = self.formatBytes(bytes)
-                    
-                    // Get dimensions
-                    let width = Int(image.size.width)
-                    let height = Int(image.size.height)
-                    
-                    // Note: We don't fetch creation date from PHAsset to avoid requiring photo library permission
-                    // PHPicker is privacy-preserving and doesn't need permission
-                    // Use current date as fallback
-                    let creationDate = ISO8601DateFormatter().string(from: Date())
-                    
-                    // Create photo info dictionary
-                    let photoInfo: [String: Any] = [
-                        "id": UUID().uuidString,
-                        "fileName": fileName,
-                        "fileSizeBytes": data.count,
-                        "fileSize": fileSize,
-                        "dimensions": [
-                            "width": width,
-                            "height": height
-                        ],
-                        "creationDate": creationDate as Any,
-                        "fileType": fileType,
-                        "assetIdentifier": assetIdentifier as Any,
-                        "imageData": FlutterStandardTypedData(bytes: data),
-                        "scale": image.scale,
-                        "orientation": self.orientationString(image.imageOrientation)
-                    ]
-                    
-                    photoInfoList.append(photoInfo)
+                    semaphore.signal()
                     group.leave()
                 }
-            } else {
-                group.leave()
+            }
+            
+            group.notify(queue: .main) {
+                self.flutterResult?(photoInfoList)
             }
         }
+    }
+    
+    private func processResult(_ result: PHPickerResult, completion: @escaping ([String: Any]?) -> Void) {
+        let itemProvider = result.itemProvider
+        let assetIdentifier = result.assetIdentifier
         
-        group.notify(queue: .main) { [weak self] in
-            self?.flutterResult?(photoInfoList)
+        // Ensure we only process images to avoid memory issues with videos
+        if !itemProvider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            completion(nil)
+            return
+        }
+        
+        // Find the best type identifier to load
+        // Prefer explicit types over general "public.image"
+        var typeIdentifierToLoad = UTType.image.identifier
+        
+        // Check for specific types we support
+        if itemProvider.hasItemConformingToTypeIdentifier(UTType.png.identifier) {
+            typeIdentifierToLoad = UTType.png.identifier
+        } else if itemProvider.hasItemConformingToTypeIdentifier(UTType.jpeg.identifier) {
+            typeIdentifierToLoad = UTType.jpeg.identifier
+        } else if itemProvider.hasItemConformingToTypeIdentifier(UTType.heic.identifier) {
+            typeIdentifierToLoad = UTType.heic.identifier
+        } else if let firstType = itemProvider.registeredTypeIdentifiers.first {
+             typeIdentifierToLoad = firstType
+        }
+        
+        itemProvider.loadFileRepresentation(forTypeIdentifier: typeIdentifierToLoad) { [weak self] url, error in
+            guard let self = self, let url = url else {
+                if let error = error {
+                    NSLog("Error loading file representation: \(error.localizedDescription)")
+                }
+                completion(nil)
+                return
+            }
+            
+            do {
+                // Determine file type and name
+                let fileType = self.getFileType(from: typeIdentifierToLoad)
+                
+                var fileName = "Unknown"
+                if let suggestedName = itemProvider.suggestedName {
+                    fileName = suggestedName
+                } else {
+                    fileName = url.lastPathComponent
+                }
+                
+                // Copy file to temporary directory
+                let tempDir = self.getTemporaryDirectory()
+                let targetFileName = "picked_\(UUID().uuidString).\(fileType.lowercased())"
+                let targetUrl = tempDir.appendingPathComponent(targetFileName)
+                
+                try FileManager.default.copyItem(at: url, to: targetUrl)
+                
+                // Get dimensions efficiently without loading full image
+                var width = 0
+                var height = 0
+                var orientation = "Up"
+                var scale: CGFloat = 1.0
+                var creationDate: String?
+                
+                // Read properties from the saved file
+                if let source = CGImageSourceCreateWithURL(targetUrl as CFURL, nil) {
+                    if let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
+                        
+                        // Dimensions
+                        width = properties[kCGImagePropertyPixelWidth as String] as? Int ?? 0
+                        height = properties[kCGImagePropertyPixelHeight as String] as? Int ?? 0
+                        
+                        // Orientation
+                        let orientationKey = kCGImagePropertyOrientation as String
+                        if let orientationNum = properties[orientationKey] as? Int {
+                             orientation = self.orientationString(orientationNum)
+                        }
+                        
+                        // Creation Date
+                        var dateString: String?
+                        
+                        // Try EXIF first
+                        if let exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+                            if let exifDate = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String {
+                                dateString = exifDate
+                            } else if let exifDate = exif[kCGImagePropertyExifDateTimeDigitized as String] as? String {
+                                dateString = exifDate
+                            }
+                        }
+                        
+                        // Try TIFF if EXIF failed
+                        if dateString == nil {
+                            if let tiff = properties[kCGImagePropertyTIFFDictionary as String] as? [String: Any] {
+                                if let tiffDate = tiff[kCGImagePropertyTIFFDateTime as String] as? String {
+                                    dateString = tiffDate
+                                }
+                            }
+                        }
+                        
+                        // Parse EXIF date format "yyyy:MM:dd HH:mm:ss" to ISO8601
+                        if let dateString = dateString {
+                            let dateFormatter = DateFormatter()
+                            dateFormatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+                            if let date = dateFormatter.date(from: dateString) {
+                                creationDate = ISO8601DateFormatter().string(from: date)
+                            }
+                        }
+                    }
+                }
+                
+                // Calculate file size from attributes
+                let resources = try targetUrl.resourceValues(forKeys: [.fileSizeKey])
+                let fileSizeInt = resources.fileSize ?? 0
+                let fileSize = self.formatBytes(Double(fileSizeInt))
+                
+                let finalCreationDate = creationDate ?? ISO8601DateFormatter().string(from: Date())
+                
+                let photoInfo: [String: Any] = [
+                    "id": UUID().uuidString,
+                    "fileName": fileName,
+                    "fileSizeBytes": fileSizeInt,
+                    "fileSize": fileSize,
+                    "dimensions": [
+                        "width": width,
+                        "height": height
+                    ],
+                    "creationDate": finalCreationDate as Any,
+                    "fileType": fileType,
+                    "assetIdentifier": assetIdentifier as Any,
+                    "filePath": targetUrl.path,
+                    "scale": scale,
+                    "orientation": orientation
+                ]
+                
+                completion(photoInfo)
+                
+            } catch {
+                NSLog("Error processing file data: \(error.localizedDescription)")
+                completion(nil)
+            }
         }
     }
+    
+    private func getTemporaryDirectory() -> URL {
+        let tempDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("picked_photos")
+        if !FileManager.default.fileExists(atPath: tempDirectory.path) {
+            try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true, attributes: nil)
+        }
+        return tempDirectory
+    }
 }
+
