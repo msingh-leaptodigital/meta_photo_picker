@@ -23,6 +23,7 @@ dependencies:
   photo_manager: ^3.5.0
   permission_handler: ^11.3.1
   device_info_plus: ^11.1.1
+  path: ^1.8.0
 
 dev_dependencies:
   flutter_test:

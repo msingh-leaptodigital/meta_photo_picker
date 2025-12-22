@@ -220,17 +220,45 @@ extension MetaPhotoPickerPlugin: PHPickerViewControllerDelegate {
                 // Determine file type and name
                 let fileType = self.getFileType(from: typeIdentifierToLoad)
                 
-                var fileName = "Unknown"
+                var originalFileName = "Unknown"
                 if let suggestedName = itemProvider.suggestedName {
-                    fileName = suggestedName
+                    originalFileName = suggestedName
                 } else {
-                    fileName = url.lastPathComponent
+                    originalFileName = url.lastPathComponent
                 }
                 
-                // Copy file to temporary directory
-                let tempDir = self.getTemporaryDirectory()
-                let targetFileName = "picked_\(UUID().uuidString).\(fileType.lowercased())"
-                let targetUrl = tempDir.appendingPathComponent(targetFileName)
+                // Determine destination
+                let targetDir: URL
+                let targetUrl: URL
+                let finalFileName: String
+                
+                if let customPath = self.pickerConfig?["destinationDirectory"] as? String {
+                    // Use custom directory
+                    let customDirUrl = URL(fileURLWithPath: customPath)
+                    
+                    // Create directory if it doesn't exist
+                    if !FileManager.default.fileExists(atPath: customPath) {
+                        try? FileManager.default.createDirectory(at: customDirUrl, withIntermediateDirectories: true, attributes: nil)
+                    }
+                    
+                    targetDir = customDirUrl
+                    
+                    // Separate name and extension
+                    let fileExtension = (originalFileName as NSString).pathExtension
+                    let fileNameWithoutExt = (originalFileName as NSString).deletingPathExtension
+                    let ext = fileExtension.isEmpty ? fileType.lowercased() : fileExtension
+                    
+                    // Get unique filename
+                    targetUrl = self.getUniqueDestinationUrl(in: targetDir, fileName: fileNameWithoutExt, fileExtension: ext)
+                    finalFileName = targetUrl.lastPathComponent
+                    
+                } else {
+                    // Use temporary directory
+                    targetDir = self.getTemporaryDirectory()
+                    let targetFileName = "picked_\(UUID().uuidString).\(fileType.lowercased())"
+                    targetUrl = targetDir.appendingPathComponent(targetFileName)
+                    finalFileName = originalFileName // Use original name in metadata, even if file on disk is UUID
+                }
                 
                 try FileManager.default.copyItem(at: url, to: targetUrl)
                 
@@ -296,7 +324,7 @@ extension MetaPhotoPickerPlugin: PHPickerViewControllerDelegate {
                 
                 let photoInfo: [String: Any] = [
                     "id": UUID().uuidString,
-                    "fileName": fileName,
+                    "fileName": finalFileName,
                     "fileSizeBytes": fileSizeInt,
                     "fileSize": fileSize,
                     "dimensions": [
@@ -326,6 +354,20 @@ extension MetaPhotoPickerPlugin: PHPickerViewControllerDelegate {
             try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true, attributes: nil)
         }
         return tempDirectory
+    }
+    
+    private func getUniqueDestinationUrl(in directory: URL, fileName: String, fileExtension: String) -> URL {
+        var finalName = "\(fileName).\(fileExtension)"
+        var destinationUrl = directory.appendingPathComponent(finalName)
+        var counter = 1
+        
+        while FileManager.default.fileExists(atPath: destinationUrl.path) {
+            finalName = "\(fileName) (\(counter)).\(fileExtension)"
+            destinationUrl = directory.appendingPathComponent(finalName)
+            counter += 1
+        }
+        
+        return destinationUrl
     }
 }
 

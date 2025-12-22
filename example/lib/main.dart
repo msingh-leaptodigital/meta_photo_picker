@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:meta_photo_picker/meta_photo_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -38,6 +39,13 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
   final _metaPhotoPickerPlugin = MetaPhotoPicker();
   List<PhotoInfo> _selectedPhotos = [];
   bool _isLoading = false;
+  bool _saveToDocuments = false;
+
+  Future<String?> _getDestinationDirectory() async {
+    if (!_saveToDocuments) return null;
+    final documentsDir = await getApplicationDocumentsDirectory();
+    return '${documentsDir.path}/MetaPhotos';
+  }
 
   Future<void> _pickPhotos() async {
     setState(() {
@@ -45,11 +53,14 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
     });
 
     try {
+      final destination = await _getDestinationDirectory();
+      
       final config = PickerConfig(
         selectionLimit: 0, // Unlimited selection
         filter: PickerFilter.images,
         preferredAssetRepresentationMode: AssetRepresentationMode.current,
         compressionQuality: 1.0, // No compression
+        destinationDirectory: destination,
       );
 
       final photos = await _metaPhotoPickerPlugin.pickPhotos(
@@ -88,7 +99,7 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Added ${photos.length} photo(s)')),
+            SnackBar(content: Text('Added ${photos.length} photo(s)${destination != null ? " to Documents" : ""}')),
           );
         }
       }
@@ -121,11 +132,14 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
     });
 
     try {
+      final destination = await _getDestinationDirectory();
+
       final config = PickerConfig(
         selectionLimit: 1,
         filter: PickerFilter.images,
         preferredAssetRepresentationMode: AssetRepresentationMode.current,
         compressionQuality: 1.0, // No compression
+        destinationDirectory: destination,
       );
 
       final photo = await _metaPhotoPickerPlugin.pickSinglePhoto(
@@ -164,7 +178,7 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Added ${photo.fileName}')),
+            SnackBar(content: Text('Added ${photo.fileName}${destination != null ? " to Documents" : ""}')),
           );
         }
       }
@@ -219,11 +233,27 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _selectedPhotos.isEmpty
-              ? _buildEmptyState()
-              : _buildPhotoList(),
+      body: Column(
+        children: [
+          SwitchListTile(
+            title: const Text('Save to Documents'),
+            subtitle: const Text('Preserves filenames and avoids duplicates'),
+            value: _saveToDocuments,
+            onChanged: (value) {
+              setState(() {
+                _saveToDocuments = value;
+              });
+            },
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _selectedPhotos.isEmpty
+                    ? _buildEmptyState()
+                    : _buildPhotoList(),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final status = await _metaPhotoPickerPlugin.checkPhotoAccessStatus();
@@ -558,6 +588,12 @@ class PhotoDetailScreen extends StatelessWidget {
                       icon: Icons.fingerprint,
                       title: 'Asset ID',
                       value: photo.assetIdentifier!,
+                    ),
+                  if (photo.filePath != null)
+                    _DetailRow(
+                      icon: Icons.folder_open,
+                      title: 'File Path',
+                      value: photo.filePath!,
                     ),
                   const Divider(height: 32),
                   Text(

@@ -15,11 +15,18 @@ class PickerConfig {
   /// Default is 1.0 (no compression, maximum quality)
   final double compressionQuality;
 
+  /// Optional directory path where selected photos should be saved.
+  /// If provided, photos will be copied to this directory with their original names.
+  /// Duplicate file names will be handled by appending a counter (e.g., "Image (1).jpg").
+  /// If null, photos will be saved to a temporary directory.
+  final String? destinationDirectory;
+
   PickerConfig({
     this.selectionLimit = 1,
     this.filter = PickerFilter.images,
     this.preferredAssetRepresentationMode = AssetRepresentationMode.current,
     this.compressionQuality = 1.0,
+    this.destinationDirectory,
   }) : assert(selectionLimit >= 0, 'Selection limit must be non-negative'),
        assert(compressionQuality >= 0.0 && compressionQuality <= 1.0, 
               'Compression quality must be between 0.0 and 1.0');
@@ -31,6 +38,7 @@ class PickerConfig {
       'filter': filter.value,
       'preferredAssetRepresentationMode': preferredAssetRepresentationMode.value,
       'compressionQuality': compressionQuality,
+      'destinationDirectory': destinationDirectory,
     };
   }
 
@@ -40,6 +48,7 @@ class PickerConfig {
     PickerFilter? filter,
     AssetRepresentationMode? preferredAssetRepresentationMode,
     double? compressionQuality,
+    String? destinationDirectory,
   }) {
     return PickerConfig(
       selectionLimit: selectionLimit ?? this.selectionLimit,
@@ -47,13 +56,15 @@ class PickerConfig {
       preferredAssetRepresentationMode: preferredAssetRepresentationMode ?? 
           this.preferredAssetRepresentationMode,
       compressionQuality: compressionQuality ?? this.compressionQuality,
+      destinationDirectory: destinationDirectory ?? this.destinationDirectory,
     );
   }
 
   @override
   String toString() {
     return 'PickerConfig(selectionLimit: $selectionLimit, filter: $filter, '
-           'mode: $preferredAssetRepresentationMode, quality: $compressionQuality)';
+        'mode: $preferredAssetRepresentationMode, quality: $compressionQuality, '
+        'destinationDirectory: $destinationDirectory)';
   }
 }
 

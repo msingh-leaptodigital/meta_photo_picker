@@ -4,6 +4,7 @@ import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:path/path.dart' as p;
 
 import 'meta_photo_picker_platform_interface.dart';
 import 'models/photo_info.dart';
@@ -289,7 +290,7 @@ class MetaPhotoPicker {
       debugPrint('🔄 Converting ${assets.length} assets to PhotoInfo...');
       final List<PhotoInfo> photoInfoList = [];
       for (final asset in assets) {
-        final photoInfo = await _convertAssetToPhotoInfo(asset);
+        final photoInfo = await _convertAssetToPhotoInfo(asset, config);
         if (photoInfo != null) {
           photoInfoList.add(photoInfo);
         }
@@ -308,14 +309,54 @@ class MetaPhotoPicker {
   }
 
   /// Convert AssetEntity to PhotoInfo
-  Future<PhotoInfo?> _convertAssetToPhotoInfo(AssetEntity asset) async {
+  Future<PhotoInfo?> _convertAssetToPhotoInfo(
+    AssetEntity asset,
+    PickerConfig config,
+  ) async {
     try {
       // Get file
       final file = await asset.file;
       if (file == null) return null;
 
+      String finalFilePath = file.path;
+      String finalFileName = asset.title ?? 'Image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      // Handle custom destination directory
+      if (config.destinationDirectory != null) {
+        final destDir = Directory(config.destinationDirectory!);
+        if (!await destDir.exists()) {
+          await destDir.create(recursive: true);
+        }
+
+        // Get original file extension
+        String extension = p.extension(finalFilePath);
+        if (extension.isEmpty) {
+          // Fallback if no extension
+          extension = '.jpg';
+        }
+
+        String fileNameWithoutExt = p.basenameWithoutExtension(finalFileName);
+        // Ensure extension is consistent
+        if (finalFileName.toLowerCase().endsWith(extension.toLowerCase())) {
+          fileNameWithoutExt = p.basenameWithoutExtension(finalFileName);
+        }
+
+        // Generate unique destination path
+        finalFilePath = await _getUniqueDestinationPath(
+          destDir.path,
+          fileNameWithoutExt,
+          extension,
+        );
+
+        // Copy file to destination
+        await file.copy(finalFilePath);
+
+        // Update filename to match the saved file
+        finalFileName = p.basename(finalFilePath);
+      }
+
       // Get file size
-      final fileSize = await file.length();
+      final fileSize = await File(finalFilePath).length();
       final fileSizeFormatted = _formatBytes(fileSize.toDouble());
 
       // Get dimensions
@@ -339,19 +380,16 @@ class MetaPhotoPicker {
       // Get creation date
       final creationDate = asset.createDateTime.toIso8601String();
 
-      // Get file name
-      final fileName = asset.title ?? 'Image_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
       return PhotoInfo(
         id: asset.id,
-        fileName: fileName,
+        fileName: finalFileName,
         fileSizeBytes: fileSize,
         fileSize: fileSizeFormatted,
         dimensions: PhotoDimensions(width: width, height: height),
         creationDate: creationDate,
         fileType: fileType,
         assetIdentifier: asset.id,
-        filePath: file.path,
+        filePath: finalFilePath,
         imageData: null, // Don't load bytes into memory
         scale: 1.0,
         orientation: ImageOrientation.up, // Android doesn't provide orientation easily
@@ -359,6 +397,35 @@ class MetaPhotoPicker {
     } catch (e) {
       debugPrint('Error converting asset to PhotoInfo: $e');
       return null;
+    }
+  }
+
+  /// Generates a unique file path in the destination directory
+  /// Appends (n) to the filename if it already exists
+  Future<String> _getUniqueDestinationPath(
+    String dirPath,
+    String fileName,
+    String extension,
+  ) async {
+    // Ensure extension starts with dot
+    final ext = extension.startsWith('.') ? extension : '.$extension';
+
+    String finalName = '$fileName$ext';
+    String fullPath = p.join(dirPath, finalName);
+
+    if (!await File(fullPath).exists()) {
+      return fullPath;
+    }
+
+    int counter = 1;
+    while (true) {
+      finalName = '$fileName ($counter)$ext';
+      fullPath = p.join(dirPath, finalName);
+
+      if (!await File(fullPath).exists()) {
+        return fullPath;
+      }
+      counter++;
     }
   }
 
