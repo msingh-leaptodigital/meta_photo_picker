@@ -55,6 +55,28 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
       final photos = await _metaPhotoPickerPlugin.pickPhotos(
         config: config,
         context: context, // Pass context for Android
+        onLoadStarted: () {
+          debugPrint('🔄 onLoadStarted callback received');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Processing started...'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        },
+        onLoadEnded: () {
+          debugPrint('✅ onLoadEnded callback received');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Processing finished'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        },
       );
 
       debugPrint('📸 Picked ${photos?.length ?? 0} photos');
@@ -109,6 +131,28 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
       final photo = await _metaPhotoPickerPlugin.pickSinglePhoto(
         config: config,
         context: context, // Pass context for Android
+        onLoadStarted: () {
+          debugPrint('🔄 onLoadStarted callback received');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Processing started...'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        },
+        onLoadEnded: () {
+          debugPrint('✅ onLoadEnded callback received');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Processing finished'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        },
       );
 
       debugPrint('📸 Picked single photo: ${photo?.fileName}');

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -18,7 +20,23 @@ class MethodChannelMetaPhotoPicker extends MetaPhotoPickerPlatform {
   }
 
   @override
-  Future<List<PhotoInfo>?> pickPhotos({required PickerConfig config}) async {
+  Future<List<PhotoInfo>?> pickPhotos({
+    required PickerConfig config,
+    VoidCallback? onLoadStarted,
+    VoidCallback? onLoadEnded,
+  }) async {
+    // Set up method call handler for events
+    methodChannel.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case 'onLoadStarted':
+          onLoadStarted?.call();
+          break;
+        case 'onLoadEnded':
+          onLoadEnded?.call();
+          break;
+      }
+    });
+
     try {
       final result = await methodChannel.invokeMethod<List<dynamic>>(
         'pickPhotos',
@@ -57,6 +75,9 @@ class MethodChannelMetaPhotoPicker extends MetaPhotoPickerPlatform {
     } catch (e) {
       debugPrint('Error parsing photo data: $e');
       rethrow;
+    } finally {
+      // Clean up handler
+      methodChannel.setMethodCallHandler(null);
     }
   }
 }

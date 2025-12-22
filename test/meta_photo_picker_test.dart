@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meta_photo_picker/meta_photo_picker.dart';
 import 'package:meta_photo_picker/meta_photo_picker_platform_interface.dart';
@@ -14,7 +16,11 @@ class MockMetaPhotoPickerPlatform
   Future<String?> getPlatformVersion() => Future.value('42');
 
   @override
-  Future<List<PhotoInfo>?> pickPhotos({required PickerConfig config}) {
+  Future<List<PhotoInfo>?> pickPhotos({
+    required PickerConfig config,
+    VoidCallback? onLoadStarted,
+    VoidCallback? onLoadEnded,
+  }) {
     return Future.value([
       PhotoInfo(
         id: 'test-id',

@@ -89,13 +89,24 @@ class MetaPhotoPicker {
   Future<List<PhotoInfo>?> pickPhotos({
     PickerConfig? config,
     BuildContext? context,
+    VoidCallback? onLoadStarted,
+    VoidCallback? onLoadEnded,
   }) async {
     final pickerConfig = config ?? PickerConfig();
 
     if (Platform.isAndroid) {
-      return _pickPhotosAndroid(pickerConfig, context);
+      return _pickPhotosAndroid(
+        pickerConfig,
+        context,
+        onLoadStarted: onLoadStarted,
+        onLoadEnded: onLoadEnded,
+      );
     } else if (Platform.isIOS) {
-      return MetaPhotoPickerPlatform.instance.pickPhotos(config: pickerConfig);
+      return MetaPhotoPickerPlatform.instance.pickPhotos(
+        config: pickerConfig,
+        onLoadStarted: onLoadStarted,
+        onLoadEnded: onLoadEnded,
+      );
     } else {
       throw UnsupportedError('Platform not supported');
     }
@@ -122,17 +133,26 @@ class MetaPhotoPicker {
   Future<PhotoInfo?> pickSinglePhoto({
     PickerConfig? config,
     BuildContext? context,
+    VoidCallback? onLoadStarted,
+    VoidCallback? onLoadEnded,
   }) async {
     final modifiedConfig = (config ?? PickerConfig()).copyWith(selectionLimit: 1);
-    final photos = await pickPhotos(config: modifiedConfig, context: context);
+    final photos = await pickPhotos(
+      config: modifiedConfig,
+      context: context,
+      onLoadStarted: onLoadStarted,
+      onLoadEnded: onLoadEnded,
+    );
     return photos?.isNotEmpty == true ? photos!.first : null;
   }
 
   /// Android implementation using wechat_assets_picker
   Future<List<PhotoInfo>?> _pickPhotosAndroid(
     PickerConfig config,
-    BuildContext? context,
-  ) async {
+    BuildContext? context, {
+    VoidCallback? onLoadStarted,
+    VoidCallback? onLoadEnded,
+  }) async {
     if (context == null) {
       throw ArgumentError('BuildContext is required for Android picker');
     }
@@ -262,6 +282,9 @@ class MetaPhotoPicker {
         return null;
       }
 
+      // Notify start of loading
+      onLoadStarted?.call();
+
       // Convert AssetEntity to PhotoInfo
       debugPrint('🔄 Converting ${assets.length} assets to PhotoInfo...');
       final List<PhotoInfo> photoInfoList = [];
@@ -273,6 +296,10 @@ class MetaPhotoPicker {
       }
 
       debugPrint('✅ Converted ${photoInfoList.length} photos');
+      
+      // Notify end of loading
+      onLoadEnded?.call();
+      
       return photoInfoList.isEmpty ? null : photoInfoList;
     } catch (e) {
       debugPrint('❌ Error in picker: $e');

@@ -8,10 +8,12 @@ import ImageIO
 public class MetaPhotoPickerPlugin: NSObject, FlutterPlugin {
     private var flutterResult: FlutterResult?
     private var pickerConfig: [String: Any]?
+    private var channel: FlutterMethodChannel?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "meta_photo_picker", binaryMessenger: registrar.messenger())
         let instance = MetaPhotoPickerPlugin()
+        instance.channel = channel
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
     
@@ -145,6 +147,9 @@ extension MetaPhotoPickerPlugin: PHPickerViewControllerDelegate {
             return
         }
         
+        // Notify start of loading
+        self.channel?.invokeMethod("onLoadStarted", arguments: nil)
+        
         let group = DispatchGroup()
         let dataQueue = DispatchQueue(label: "com.metaphotopicker.dataQueue")
         var photoInfoList: [[String: Any]] = []
@@ -170,6 +175,8 @@ extension MetaPhotoPickerPlugin: PHPickerViewControllerDelegate {
             }
             
             group.notify(queue: .main) {
+                // Notify end of loading
+                self.channel?.invokeMethod("onLoadEnded", arguments: nil)
                 self.flutterResult?(photoInfoList)
             }
         }

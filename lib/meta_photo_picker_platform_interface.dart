@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'meta_photo_picker_method_channel.dart';
@@ -30,7 +32,11 @@ abstract class MetaPhotoPickerPlatform extends PlatformInterface {
   }
 
   /// Opens the photo picker and returns selected photos with detailed information
-  Future<List<PhotoInfo>?> pickPhotos({required PickerConfig config}) {
+  Future<List<PhotoInfo>?> pickPhotos({
+    required PickerConfig config,
+    VoidCallback? onLoadStarted,
+    VoidCallback? onLoadEnded,
+  }) {
     throw UnimplementedError('pickPhotos() has not been implemented.');
   }
 }
