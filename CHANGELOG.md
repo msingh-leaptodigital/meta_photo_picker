@@ -1,5 +1,18 @@
 ## 0.0.2
 
+* **Performance Improvements:**
+  - **iOS optimization:** Photos now saved to disk with file paths instead of loading all bytes into memory
+  - **Memory efficiency:** Added `filePath` field to `PhotoInfo` for better memory management
+  - **EXIF metadata extraction:** iOS now extracts actual creation dates from EXIF/TIFF metadata without requiring photo library permission
+  - **Improved file handling:** Optimized image processing pipeline on iOS for faster performance
+* **New Features:**
+  - **Load callbacks:** Added `onLoadStarted` and `onLoadEnded` callbacks to `pickPhotos()` and `pickSinglePhoto()` for showing loading indicators
+  - **Custom destination directory:** Added `destinationDirectory` parameter to `PickerConfig` to save photos to a specific location
+  - **Automatic duplicate handling:** Files with duplicate names are automatically renamed (e.g., "Image (1).jpg")
+  - **File path support:** `imageData` is now optional - prefer using `filePath` for better memory usage
+* **Breaking Changes:**
+  - `PhotoInfo.imageData` is now nullable (`Uint8List?`) - check `filePath` first for optimal performance
+  - Always prefer `Image.file(File(photo.filePath!))` over `Image.memory(photo.imageData!)`
 * **Bug Fixes:**
   - Fixed Android picker showing "1/9999" count on confirm button - now shows reasonable default of 150 for unlimited selection
   - Disabled intrusive limited permission warning dialog on Android - picker now works smoothly without showing system warning overlay
@@ -8,10 +21,13 @@
   - Fixed `checkPhotoAccessStatus()` to use `Permission.photos.status` for more reliable state checking
   - Added `limitedPermissionOverlayPredicate` to prevent unwanted permission dialogs during photo selection
 * **Documentation Updates:**
+  - Comprehensive README update reflecting all new features and improvements
+  - Added examples for load callbacks and custom destination directory
+  - Updated all code examples to use file paths instead of image data
   - Added comprehensive documentation for Android limited permission behavior
   - Documented Android permission state caching and app restart requirement
-  - Updated platform comparison tables to reflect Android 14+ limited access support
-  - Added FAQ entry explaining permission state caching behavior
+  - Updated platform comparison tables to reflect all new features
+  - Added FAQ entries for new features and best practices
   - Added troubleshooting section for permission status not updating
   - Included code examples for handling limited permission scenarios
 
