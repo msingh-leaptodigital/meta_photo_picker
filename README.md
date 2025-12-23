@@ -26,7 +26,8 @@ The plugin returns detailed metadata for each selected photo including file info
 - Image dimensions (width, height) and aspect ratio
 - Creation date (ISO 8601 format)
 - Asset identifier (for photo library reference)
-- Image data (raw bytes for display)
+- File path to temporary or custom destination
+- Image data (optional - can use file path for better memory management)
 - Image orientation and scale factor
 
 ### Configuration Options
@@ -34,12 +35,17 @@ The plugin returns detailed metadata for each selected photo including file info
 - Media type filter (images, videos, live photos, or all)
 - Asset representation mode (automatic, current, compatible)
 - Compression quality (0.0 - 1.0, default 1.0 = no compression)
+- Custom destination directory (save photos to a specific location)
+- Load callbacks (get notified when processing starts and ends)
 
 ### Additional Features
 - 📱 **Check photo access status** - Know if user has granted full, limited, or no access
 - 🔄 **Direct selection on Android** - Tap to select, no preview needed
 - 🎯 **Type-safe models** - Well-defined Dart models for all data
 - 📝 **Comprehensive documentation** - Clear examples and API docs
+- 🔔 **Load callbacks** - Get notified when photo processing starts and ends
+- 💾 **Custom save location** - Save photos directly to your preferred directory
+- 🚀 **Optimized memory** - File path support reduces memory footprint
 
 ## 🆚 Platform Differences
 
@@ -169,6 +175,13 @@ final photo = await picker.pickSinglePhoto(context: context);
 
 // Pick multiple photos
 final photos = await picker.pickPhotos(context: context);
+
+// Pick with load callbacks
+final photos = await picker.pickPhotos(
+  context: context,
+  onLoadStarted: () => print('Loading started...'),
+  onLoadEnded: () => print('Loading finished!'),
+);
 ```
 
 ### Basic Example - Pick Single Photo
@@ -190,11 +203,13 @@ class MyWidget extends StatelessWidget {
       print('📐 Dimensions: ${photo.dimensions.width}x${photo.dimensions.height}');
       print('🎨 Type: ${photo.fileType}');
       
-      // Display the image
+      // Display the image using file path (better memory management)
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          content: Image.memory(photo.imageData),
+          content: photo.filePath != null 
+            ? Image.file(File(photo.filePath!))
+            : Image.memory(photo.imageData!),
         ),
       );
     }
@@ -223,6 +238,7 @@ final config = PickerConfig(
   filter: PickerFilter.images, // Only show images
   preferredAssetRepresentationMode: AssetRepresentationMode.current,
   compressionQuality: 1.0,     // No compression (original quality)
+  destinationDirectory: '/path/to/save/photos', // Optional: custom save location
 );
 
 // Pick multiple photos
@@ -287,10 +303,15 @@ class _PhotoGalleryState extends State<PhotoGallery> {
         itemCount: selectedPhotos.length,
         itemBuilder: (context, index) {
           final photo = selectedPhotos[index];
-          return Image.memory(
-            photo.imageData,
-            fit: BoxFit.cover,
-          );
+          return photo.filePath != null
+            ? Image.file(
+                File(photo.filePath!),
+                fit: BoxFit.cover,
+              )
+            : Image.memory(
+                photo.imageData!,
+                fit: BoxFit.cover,
+              );
         },
       ),
       floatingActionButton: FloatingActionButton(
@@ -301,6 +322,76 @@ class _PhotoGalleryState extends State<PhotoGallery> {
   }
 }
 ```
+
+### Using Load Callbacks
+
+Get notified when photo processing starts and ends (useful for showing loading indicators):
+
+```dart
+final picker = MetaPhotoPicker();
+bool isLoading = false;
+
+// Pick photos with callbacks
+final photos = await picker.pickPhotos(
+  context: context,
+  onLoadStarted: () {
+    setState(() => isLoading = true);
+    print('🔄 Started loading photos...');
+  },
+  onLoadEnded: () {
+    setState(() => isLoading = false);
+    print('✅ Finished loading photos!');
+  },
+);
+
+// Show loading indicator in UI
+if (isLoading) {
+  return CircularProgressIndicator();
+}
+```
+
+**Note:** Load callbacks are triggered:
+- `onLoadStarted`: When the picker begins processing selected photos
+- `onLoadEnded`: When all photos have been processed and are ready
+
+### Save to Custom Directory
+
+Save selected photos directly to a custom directory instead of temporary storage:
+
+```dart
+import 'package:path_provider/path_provider.dart';
+
+final picker = MetaPhotoPicker();
+
+// Get app documents directory
+final appDir = await getApplicationDocumentsDirectory();
+final photosDir = '${appDir.path}/my_photos';
+
+// Pick photos and save to custom directory
+final config = PickerConfig(
+  selectionLimit: 10,
+  destinationDirectory: photosDir,
+);
+
+final photos = await picker.pickPhotos(
+  context: context,
+  config: config,
+);
+
+if (photos != null) {
+  for (var photo in photos) {
+    print('📁 Saved to: ${photo.filePath}');
+    // Photo is already saved at the custom location!
+  }
+}
+```
+
+**Features:**
+- Photos are automatically copied to the specified directory
+- Duplicate filenames are handled automatically (e.g., "Image (1).jpg", "Image (2).jpg")
+- Original filenames are preserved when possible
+- Works on both iOS and Android
+- If `destinationDirectory` is null, photos are saved to a temporary directory
 
 ### Check Photo Access Status
 
@@ -356,6 +447,7 @@ PickerConfig({
   PickerFilter filter = PickerFilter.images, // Media type filter
   AssetRepresentationMode preferredAssetRepresentationMode = AssetRepresentationMode.current,
   double compressionQuality = 1.0,           // JPEG compression (0.0 - 1.0)
+  String? destinationDirectory,              // Optional: custom directory to save photos
 })
 ```
 
@@ -367,6 +459,7 @@ PickerConfig({
 | `filter` | `PickerFilter` | `images` | Filter media types shown in picker. |
 | `preferredAssetRepresentationMode` | `AssetRepresentationMode` | `current` | How assets should be represented (iOS only). |
 | `compressionQuality` | `double` | `1.0` | JPEG compression quality (1.0 = no compression). |
+| `destinationDirectory` | `String?` | `null` | Custom directory path to save photos. If null, uses temporary directory. |
 
 #### PickerFilter Options
 
@@ -401,7 +494,8 @@ class PhotoInfo {
   final String? creationDate;        // ISO 8601 format (e.g., "2024-01-15T10:30:00Z")
   final String fileType;             // File type: "JPEG", "PNG", "HEIC", "GIF", "WEBP"
   final String? assetIdentifier;     // Photos library asset ID (platform-specific)
-  final Uint8List imageData;         // Raw image bytes for display
+  final String? filePath;            // Path to the saved file (temporary or custom directory)
+  final Uint8List? imageData;        // Raw image bytes (optional, may be null if filePath is used)
   final double scale;                // Image scale factor (typically 1.0)
   final ImageOrientation orientation; // Image orientation (up, down, left, right, etc.)
   
@@ -451,12 +545,18 @@ if (photo != null) {
   print('Aspect: ${photo.aspectRatio}');       // 1.333
   print('Orientation: ${photo.orientation}');  // ImageOrientation.up
   
-  // Display the image
-  Image.memory(photo.imageData);
+  // Display the image using file path (recommended for better memory management)
+  if (photo.filePath != null) {
+    Image.file(File(photo.filePath!));
+  } else if (photo.imageData != null) {
+    Image.memory(photo.imageData!);
+  }
   
-  // Save to file
-  final file = File('path/to/save/${photo.fileName}');
-  await file.writeAsBytes(photo.imageData);
+  // File is already saved at filePath, just copy if needed
+  if (photo.filePath != null) {
+    final destFile = File('path/to/save/${photo.fileName}');
+    await File(photo.filePath!).copy(destFile.path);
+  }
 }
 ```
 
@@ -576,7 +676,8 @@ Future<void> pickPhotosWithErrorHandling(BuildContext context) async {
 - ✅ **Works immediately** - No permission dialog for basic photo selection
 - ⚠️ **iOS 14+ required** - PHPicker is not available on older iOS versions
 - ℹ️ **Limited access** - iOS 14+ users can grant access to selected photos only
-- ℹ️ **Creation date** - Uses current date as fallback (no PHAsset access needed)
+- ✅ **Creation date** - Extracted from EXIF/TIFF metadata without requiring photo library permission
+- ✅ **File path support** - Photos saved to temporary directory with optimized memory usage
 
 ### Android Specific
 
@@ -640,10 +741,12 @@ Inform users that if they change photo permissions in system settings, they shou
 
 ### Memory Considerations
 
-- ⚠️ **Image data in memory** - Each `PhotoInfo` contains full image bytes
-- 💡 **Large images** - Consider memory usage when selecting many large photos
-- 💡 **Optimization** - Process and save images to disk, then clear from memory
-- 💡 **Compression** - Use `compressionQuality` parameter to reduce memory usage
+- ✅ **Optimized memory usage** - Photos are now saved to disk with file paths instead of loading all bytes into memory
+- ✅ **File path support** - Use `photo.filePath` to access saved files without keeping data in memory
+- 💡 **Custom directory** - Use `destinationDirectory` to save photos directly to your preferred location
+- 💡 **Image display** - Use `Image.file(File(photo.filePath!))` instead of `Image.memory()` for better performance
+- 💡 **Compression** - Use `compressionQuality` parameter to reduce file size if needed
+- ⚠️ **Legacy support** - `imageData` is now optional and may be null; always check `filePath` first
 
 ### Platform Differences
 
@@ -654,7 +757,10 @@ Inform users that if they change photo permissions in system settings, they shou
 | Permission state refresh | ✅ Immediate | ⚠️ Requires app restart |
 | Context required | ❌ No | ✅ Yes |
 | Live Photos | ✅ Supported | ❌ Falls back to images |
-| Creation date | ⚠️ Fallback to current | ✅ Actual date |
+| Creation date | ✅ From EXIF metadata | ✅ Actual date |
+| File path support | ✅ Supported | ✅ Supported |
+| Custom destination | ✅ Supported | ✅ Supported |
+| Load callbacks | ✅ Supported | ✅ Supported |
 
 ## 📝 Best Practices
 
@@ -687,38 +793,54 @@ for (var photo in photos) { // Might throw if null
 }
 ```
 
-### 3. Manage Memory for Large Selections
+### 3. Use File Paths for Better Memory Management
 
 ```dart
-// ✅ Good - Process and save immediately
+// ✅ Good - Use file paths (photos are already saved to disk)
+final photos = await picker.pickPhotos(
+  context: context,
+  config: PickerConfig(
+    destinationDirectory: '/path/to/save',
+  ),
+);
+if (photos != null) {
+  for (var photo in photos) {
+    // Photo is already saved at photo.filePath!
+    print('Saved at: ${photo.filePath}');
+    
+    // Display using file path (no memory overhead)
+    Image.file(File(photo.filePath!));
+  }
+}
+
+// ❌ Bad - Loading all image data into memory
 final photos = await picker.pickPhotos(context: context);
 if (photos != null) {
   for (var photo in photos) {
-    // Save to disk
-    final file = File('path/${photo.fileName}');
-    await file.writeAsBytes(photo.imageData);
+    // This loads all bytes into memory
+    if (photo.imageData != null) {
+      Image.memory(photo.imageData!);
+    }
   }
-  // Clear from memory
-  photos.clear();
-}
-
-// ❌ Bad - Keep all in memory
-final allPhotos = <PhotoInfo>[];
-final photos = await picker.pickPhotos(context: context);
-if (photos != null) {
-  allPhotos.addAll(photos); // Memory grows indefinitely
 }
 ```
 
-### 4. Provide User Feedback
+### 4. Provide User Feedback with Load Callbacks
 
 ```dart
-// ✅ Good - Show loading and feedback
-setState(() => isLoading = true);
-
-final photos = await picker.pickPhotos(context: context);
-
-setState(() => isLoading = false);
+// ✅ Good - Use load callbacks for better UX
+final photos = await picker.pickPhotos(
+  context: context,
+  onLoadStarted: () {
+    setState(() => isLoading = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Processing photos...')),
+    );
+  },
+  onLoadEnded: () {
+    setState(() => isLoading = false);
+  },
+);
 
 if (photos != null) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -736,13 +858,13 @@ A: No! PHPicker is privacy-preserving and doesn't require photo library permissi
 A: BuildContext is required for Android to show the picker dialog. iOS doesn't need it but we keep the API consistent.
 
 **Q: Can I get the actual creation date on iOS?**
-A: Not without requesting photo library permission. To keep the plugin permission-free on iOS, we use the current date as a fallback.
+A: Yes! The plugin now extracts creation dates from EXIF metadata without requiring photo library permission. It reads the date from the image file's metadata (EXIF/TIFF data).
 
 **Q: What's the difference between `fullAccess` and `limitedAccess`?**
 A: On iOS 14+, users can choose to give apps access to all photos (`fullAccess`) or only selected photos (`limitedAccess`). Both work with PHPicker.
 
 **Q: How do I handle large images?**
-A: Consider using the `compressionQuality` parameter to reduce file size, or process and save images to disk immediately after selection.
+A: The plugin now uses file paths instead of loading all image data into memory. Use `photo.filePath` to access files and display them with `Image.file()` for optimal memory usage. You can also use `compressionQuality` to reduce file size and `destinationDirectory` to save directly to your preferred location.
 
 **Q: Does this work with videos?**
 A: Yes! Use `PickerFilter.videos` or `PickerFilter.any` to include videos. The plugin returns video data the same way as images.
@@ -752,6 +874,15 @@ A: No. Both PHPicker (iOS) and wechat_assets_picker (Android) use system/native 
 
 **Q: Why doesn't the permission status update after I change it in Android settings?**
 A: On Android 14+ (API 34+), the permission state is cached by the Android system in the app's process memory. After changing permissions in system settings, you must completely close and reopen the app for the new permission state to be retrieved. This is standard Android behavior, not a plugin limitation. The app needs to be terminated (force stopped or swiped away from recent apps) and relaunched to see the updated permission state.
+
+**Q: How do I show a loading indicator while photos are being processed?**
+A: Use the `onLoadStarted` and `onLoadEnded` callbacks when calling `pickPhotos()` or `pickSinglePhoto()`. These callbacks notify you when processing begins and ends, perfect for showing/hiding loading indicators.
+
+**Q: Can I save photos to a specific directory?**
+A: Yes! Use the `destinationDirectory` parameter in `PickerConfig` to specify where photos should be saved. The plugin will automatically copy photos to that directory and handle duplicate filenames.
+
+**Q: Should I use `imageData` or `filePath`?**
+A: Always prefer `filePath` for better memory management. The `imageData` field is now optional and may be null. Use `Image.file(File(photo.filePath!))` instead of `Image.memory(photo.imageData!)` for displaying images.
 
 ## 🔧 Troubleshooting
 
