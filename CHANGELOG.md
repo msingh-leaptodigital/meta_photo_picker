@@ -1,3 +1,25 @@
+## 0.0.3
+
+* **Performance Improvements:**
+  - **iOS optimization:** Photos now saved to disk with file paths instead of loading all bytes into memory
+  - **Memory efficiency:** Added `filePath` field to `PhotoInfo` for better memory management
+  - **EXIF metadata extraction:** iOS now extracts actual creation dates from EXIF/TIFF metadata without requiring photo library permission
+  - **Improved file handling:** Optimized image processing pipeline on iOS for faster performance
+* **New Features:**
+  - **Load callbacks:** Added `onLoadStarted` and `onLoadEnded` callbacks to `pickPhotos()` and `pickSinglePhoto()` for showing loading indicators
+  - **Custom destination directory:** Added `destinationDirectory` parameter to `PickerConfig` to save photos to a specific location
+  - **Automatic duplicate handling:** Files with duplicate names are automatically renamed (e.g., "Image (1).jpg")
+  - **File path support:** `imageData` is now optional - prefer using `filePath` for better memory usage
+* **Breaking Changes:**
+  - `PhotoInfo.imageData` is now nullable (`Uint8List?`) - check `filePath` first for optimal performance
+  - Always prefer `Image.file(File(photo.filePath!))` over `Image.memory(photo.imageData!)`
+* **Documentation Updates:**
+  - Comprehensive README update reflecting all new features and improvements
+  - Added examples for load callbacks and custom destination directory
+  - Updated all code examples to use file paths instead of image data
+  - Updated platform comparison tables to reflect all new features
+  - Added FAQ entries for new features and best practices
+
 ## 0.0.2
 
 * **Performance Improvements:**
