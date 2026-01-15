@@ -1,3 +1,36 @@
+## 0.0.4
+
+* **Major Architecture Change:**
+  - **Android:** Replaced `wechat_assets_picker` with native file picker (ACTION_PICK intent)
+  - **No permissions required:** Both iOS and Android now use privacy-preserving file pickers
+  - **Removed dependencies:** Eliminated `wechat_assets_picker`, `photo_manager`, `permission_handler`, and `device_info_plus`
+  - **Simplified API:** Removed `BuildContext` requirement from `pickPhotos()` and `pickSinglePhoto()`
+* **Android Implementation:**
+  - Native file picker using `ACTION_PICK` intent with `image/*` MIME type filtering
+  - Full EXIF metadata extraction (dimensions, orientation, creation date, file type)
+  - Intelligent filename resolution from MediaStore (handles numeric filenames from Google Photos)
+  - Custom destination directory support with automatic duplicate handling
+  - No storage permissions required - privacy-first approach
+* **Breaking Changes:**
+  - **Removed:** `checkPhotoAccessStatus()`, `requestPermission()`, `isPermissionGranted()` methods
+  - **Removed:** `PhotoAccessStatus` enum
+  - **Removed:** `context` parameter from `pickPhotos()` and `pickSinglePhoto()`
+  - **Removed:** `PermissionStatus` export
+  - **Android:** No longer requires storage permissions in AndroidManifest.xml
+* **API Simplification:**
+  - `pickPhotos()` now works without `BuildContext` on both platforms
+  - `pickSinglePhoto()` now works without `BuildContext` on both platforms
+  - Cleaner, more consistent API across iOS and Android
+* **Dependencies:**
+  - Added `androidx.exifinterface:exifinterface:1.3.7` to Android build.gradle
+  - Removed 4 Flutter dependencies, reducing package size and complexity
+* **Documentation:**
+  - Complete README rewrite reflecting native file picker implementation
+  - Removed all permission-related documentation and examples
+  - Updated all code examples to remove `context` parameter
+  - Updated platform comparison tables
+  - Simplified setup instructions (no permissions needed)
+
 ## 0.0.3
 
 * **Performance Improvements:**
