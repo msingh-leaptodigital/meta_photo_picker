@@ -4,22 +4,22 @@ A modern, privacy-focused Flutter plugin for picking photos from the device gall
 
 ## 🌟 Introduction
 
-`meta_photo_picker` provides a unified API for photo selection across iOS and Android platforms:
+`meta_photo_picker` provides a unified API for image file selection across iOS and Android platforms:
 
 - **iOS**: Uses Apple's privacy-preserving PHPicker (iOS 14+) - **no permission required!**
-- **Android**: Uses the popular [wechat_assets_picker](https://pub.dev/packages/wechat_assets_picker) for a native experience
+- **Android**: Uses native file picker with image filtering (ACTION_PICK) - **no permission required!**
 
-The plugin returns detailed metadata for each selected photo including file information, dimensions, and image data, making it perfect for apps that need more than just image selection.
+The plugin returns detailed metadata for each selected image including file information, dimensions, EXIF data, and file paths, making it perfect for apps that need more than just image selection.
 
 ## ✨ Features
 
 ### Core Features
-- 🖼️ **Pick single or multiple photos** from the device gallery
-- 🔒 **Privacy-first on iOS** - PHPicker doesn't require photo library permission
-- 📊 **Rich metadata** for each selected photo
+- 🖼️ **Pick single or multiple images** using native file pickers
+- 🔒 **Privacy-first on both platforms** - No storage permissions required
+- 📊 **Rich metadata** for each selected image including EXIF data
 - 🎨 **Native UI** on both platforms
-- ⚡ **Fast and efficient** - optimized for performance
-- 🔧 **Highly configurable** picker options
+- ⚡ **Fast and efficient** - Direct file access without permission overhead
+- 🔧 **Configurable** picker options
 
 ### Metadata Included
 - File name, size (bytes and formatted), and type (JPEG, PNG, HEIC, etc.)
@@ -49,22 +49,20 @@ The plugin returns detailed metadata for each selected photo including file info
 
 ## 🆚 Platform Differences
 
-| Feature | iOS (PHPicker) | Android (wechat_assets_picker) |
-|---------|----------------|--------------------------------|
-| **Permission Required** | ❌ No | ✅ Yes |
-| **Privacy** | ✅ Privacy-preserving | ⚠️ Requires storage access |
-| **Limited Access** | ✅ Supported (iOS 14+) | ✅ Supported (Android 14+/API 34+) |
-| **Permission State Updates** | ✅ Immediate | ⚠️ Requires app restart |
-| **UI** | Native iOS picker | Material Design picker |
-| **Selection Speed** | Fast | Fast (optimized) |
-| **Context Required** | ❌ No | ✅ Yes |
+| Feature | iOS (PHPicker) | Android (File Picker) |
+|---------|----------------|----------------------|
+| **Permission Required** | ❌ No | ❌ No |
+| **Privacy** | ✅ Privacy-preserving | ✅ Privacy-preserving |
+| **UI** | Native iOS picker | System file picker |
+| **Selection Speed** | Fast | Fast |
+| **Context Required** | ❌ No | ❌ No |
 
 ## 📱 Platform Support
 
 | Platform | Minimum Version | Implementation |
 |----------|----------------|----------------|
 | iOS      | iOS 14.0+ | PHPicker (privacy-preserving) |
-| Android  | API 21+ (Android 5.0+) | wechat_assets_picker |
+| Android  | API 21+ (Android 5.0+) | Native file picker with image filtering |
 
 ## 📦 Installation
 
@@ -104,30 +102,9 @@ platform :ios, '14.0'
 
 ### Android Setup
 
-The plugin uses [wechat_assets_picker](https://pub.dev/packages/wechat_assets_picker) for Android, which requires proper permission configuration.
+The plugin uses the native Android file picker (ACTION_PICK intent) which **does not require any storage permissions**.
 
-**1. Add permissions to `android/app/src/main/AndroidManifest.xml`:**
-
-```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- For Android 12 and below (API 32-) -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
-                     android:maxSdkVersion="32" />
-    
-    <!-- For Android 13+ (API 33+) -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    
-    <!-- Optional: For accessing photo location metadata -->
-    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
-    
-    <application ...>
-        ...
-    </application>
-</manifest>
-```
-
-**2. Update `android/app/build.gradle`:**
+**1. Update `android/app/build.gradle`:**
 
 ```gradle
 android {
@@ -141,25 +118,7 @@ android {
 }
 ```
 
-**3. Update `android/gradle/wrapper/gradle-wrapper.properties`:**
-
-```properties
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-all.zip
-```
-
-**4. Update `android/build.gradle`:**
-
-```gradle
-dependencies {
-    classpath 'com.android.tools.build:gradle:8.1.0'  // or higher
-}
-```
-
-**Permission Handling:**
-- The plugin automatically requests the appropriate permission based on Android version
-- Android 13+ (API 33+): Uses `READ_MEDIA_IMAGES`
-- Android 12 and below: Uses `READ_EXTERNAL_STORAGE`
-- Permission is requested when `pickPhotos()` is called
+**No permissions required!** The file picker provides access to user-selected files without needing storage permissions.
 
 ## 🚀 Usage
 
@@ -171,14 +130,13 @@ import 'package:meta_photo_picker/meta_photo_picker.dart';
 final picker = MetaPhotoPicker();
 
 // Pick a single photo
-final photo = await picker.pickSinglePhoto(context: context);
+final photo = await picker.pickSinglePhoto();
 
 // Pick multiple photos
-final photos = await picker.pickPhotos(context: context);
+final photos = await picker.pickPhotos();
 
 // Pick with load callbacks
 final photos = await picker.pickPhotos(
-  context: context,
   onLoadStarted: () => print('Loading started...'),
   onLoadEnded: () => print('Loading finished!'),
 );
@@ -194,8 +152,8 @@ class MyWidget extends StatelessWidget {
   final picker = MetaPhotoPicker();
 
   Future<void> pickPhoto(BuildContext context) async {
-    // Pick a single photo (context required for Android)
-    final photo = await picker.pickSinglePhoto(context: context);
+    // Pick a single photo
+    final photo = await picker.pickSinglePhoto();
 
     if (photo != null) {
       print('✅ Selected: ${photo.fileName}');
@@ -244,7 +202,6 @@ final config = PickerConfig(
 // Pick multiple photos
 final photos = await picker.pickPhotos(
   config: config,
-  context: context, // Required for Android
 );
 
 if (photos != null && photos.isNotEmpty) {
@@ -279,7 +236,6 @@ class _PhotoGalleryState extends State<PhotoGallery> {
 
   Future<void> pickPhotos() async {
     final photos = await picker.pickPhotos(
-      context: context,
       config: PickerConfig(selectionLimit: 0), // Unlimited
     );
 
@@ -333,7 +289,6 @@ bool isLoading = false;
 
 // Pick photos with callbacks
 final photos = await picker.pickPhotos(
-  context: context,
   onLoadStarted: () {
     setState(() => isLoading = true);
     print('🔄 Started loading photos...');
@@ -374,7 +329,6 @@ final config = PickerConfig(
 );
 
 final photos = await picker.pickPhotos(
-  context: context,
   config: config,
 );
 
@@ -393,47 +347,6 @@ if (photos != null) {
 - Works on both iOS and Android
 - If `destinationDirectory` is null, photos are saved to a temporary directory
 
-### Check Photo Access Status
-
-Check if the user has granted photo library access (useful for showing UI hints):
-
-```dart
-final picker = MetaPhotoPicker();
-
-// Check access status
-final status = await picker.checkPhotoAccessStatus();
-
-switch (status) {
-  case PhotoAccessStatus.fullAccess:
-    print('✅ Full access granted');
-    break;
-  case PhotoAccessStatus.limitedAccess:
-    print('⚠️ Limited access (iOS only - user selected specific photos)');
-    break;
-  case PhotoAccessStatus.noAccess:
-    print('❌ No access - need to request permission');
-    break;
-}
-
-// Use in your UI
-if (status == PhotoAccessStatus.noAccess) {
-  // Show a message to the user
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Permission Needed'),
-      content: Text('Please grant photo access to select images.'),
-    ),
-  );
-}
-```
-
-**Note:** 
-- On iOS with PHPicker, this will always return `fullAccess` or `limitedAccess` since no permission is required
-- On Android, this checks the actual storage permission status
-- `limitedAccess` is only available on iOS 14+ when user selects specific photos
-
-**⚠️ Android Important:** On Android 14+ (API 34+), the permission state is cached by the system. If a user changes permissions in system settings (from limited to full access or vice versa), the app must be completely terminated and restarted for the new permission state to be reflected. This is Android system behavior - the permission state is stored in the app's process memory and only updates on app restart.
 
 ## 📖 API Reference
 
@@ -586,7 +499,7 @@ flutter run
 
 ```dart
 try {
-  final photos = await picker.pickPhotos(context: context);
+  final photos = await picker.pickPhotos();
   
   if (photos != null && photos.isNotEmpty) {
     print('✅ Selected ${photos.length} photos');
@@ -607,23 +520,8 @@ Future<void> pickPhotosWithErrorHandling(BuildContext context) async {
   try {
     final picker = MetaPhotoPicker();
     
-    // Check access status first (optional)
-    final status = await picker.checkPhotoAccessStatus();
-    if (status == PhotoAccessStatus.noAccess) {
-      // Show permission explanation
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Permission Needed'),
-          content: Text('Please grant photo access to select images.'),
-        ),
-      );
-      return;
-    }
-    
     // Pick photos
     final photos = await picker.pickPhotos(
-      context: context,
       config: PickerConfig(selectionLimit: 10),
     );
     
@@ -681,63 +579,10 @@ Future<void> pickPhotosWithErrorHandling(BuildContext context) async {
 
 ### Android Specific
 
-- ⚠️ **Permission required** - Must grant storage/media permission
-- ⚠️ **Context required** - BuildContext must be passed to `pickPhotos()`
-- ✅ **Auto-permission** - Plugin automatically requests appropriate permission
-- ✅ **Version-aware** - Uses `READ_MEDIA_IMAGES` on Android 13+, `READ_EXTERNAL_STORAGE` on older versions
-- ✅ **Direct selection** - Tap to select, no preview needed
-
-#### ⚠️ Android Limited Permission Behavior
-
-**Important:** On Android 14+ (API 34+), when a user grants "Limited Access" (selects specific photos), the permission state is **cached by the system** and will not update until the app session terminates.
-
-**What this means:**
-- If a user initially grants limited access and selects specific photos
-- Then goes to system settings and grants full access
-- The app will **still see limited access** until the app is completely closed and reopened
-- This is Android system behavior, not a plugin limitation
-
-**Workaround:**
-```dart
-final picker = MetaPhotoPicker();
-
-// Check permission status
-final status = await picker.checkPhotoAccessStatus();
-
-if (status == PhotoAccessStatus.limitedAccess) {
-  // Show dialog informing user they need to restart the app
-  // after changing permissions in system settings
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Limited Access'),
-      content: Text(
-        'You have granted limited access. If you change permissions '
-        'in system settings, please close and reopen the app for '
-        'changes to take effect.'
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('OK'),
-        ),
-      ],
-    ),
-  );
-}
-```
-
-**Technical Details:**
-- The permission state is retrieved from `Permission.photos.status` on Android
-- Android caches this state in the app's process memory
-- Only terminating the app process (force stop or app restart) clears this cache
-- This behavior is documented in Android's [photo picker documentation](https://developer.android.com/training/data-storage/shared/photopicker)
-
-**Best Practice:**
-Inform users that if they change photo permissions in system settings, they should:
-1. Completely close the app (swipe away from recent apps)
-2. Reopen the app
-3. The new permission state will then be reflected
+- ✅ **No permission required** - Uses native file picker (ACTION_PICK)
+- ✅ **Privacy-preserving** - User explicitly selects files to share
+- ✅ **System UI** - Uses Android's standard file picker interface
+- ✅ **Image filtering** - Only shows image files (JPEG, PNG, HEIC, GIF, WEBP, etc.)
 
 ### Memory Considerations
 
@@ -746,48 +591,33 @@ Inform users that if they change photo permissions in system settings, they shou
 - 💡 **Custom directory** - Use `destinationDirectory` to save photos directly to your preferred location
 - 💡 **Image display** - Use `Image.file(File(photo.filePath!))` instead of `Image.memory()` for better performance
 - 💡 **Compression** - Use `compressionQuality` parameter to reduce file size if needed
-- ⚠️ **Legacy support** - `imageData` is now optional and may be null; always check `filePath` first
-
-### Platform Differences
-
-| Feature | iOS | Android |
-|---------|-----|---------|
-| Permission dialog | ❌ Not shown | ✅ Shown on first use |
-| Limited access | ✅ Supported | ✅ Supported (API 34+) |
-| Permission state refresh | ✅ Immediate | ⚠️ Requires app restart |
-| Context required | ❌ No | ✅ Yes |
-| Live Photos | ✅ Supported | ❌ Falls back to images |
-| Creation date | ✅ From EXIF metadata | ✅ Actual date |
-| File path support | ✅ Supported | ✅ Supported |
-| Custom destination | ✅ Supported | ✅ Supported |
-| Load callbacks | ✅ Supported | ✅ Supported |
-
 ## 📝 Best Practices
 
+### 1. Always Check Null Results
 ### 1. Always Check Context Availability
 
 ```dart
 // ✅ Good
 if (context.mounted) {
-  final photos = await picker.pickPhotos(context: context);
+  final photos = await picker.pickPhotos();
 }
 
-// ❌ Bad
-final photos = await picker.pickPhotos(context: context);
-// Context might be unmounted
+// ❌ Bad - Not checking if widget is still mounted
+final photos = await picker.pickPhotos();
+// Widget might be disposed
 ```
 
 ### 2. Handle Null Results
 
 ```dart
 // ✅ Good
-final photos = await picker.pickPhotos(context: context);
+final photos = await picker.pickPhotos();
 if (photos != null && photos.isNotEmpty) {
   // Process photos
 }
 
 // ❌ Bad
-final photos = await picker.pickPhotos(context: context);
+final photos = await picker.pickPhotos();
 for (var photo in photos) { // Might throw if null
   // ...
 }
@@ -798,7 +628,6 @@ for (var photo in photos) { // Might throw if null
 ```dart
 // ✅ Good - Use file paths (photos are already saved to disk)
 final photos = await picker.pickPhotos(
-  context: context,
   config: PickerConfig(
     destinationDirectory: '/path/to/save',
   ),
@@ -814,7 +643,7 @@ if (photos != null) {
 }
 
 // ❌ Bad - Loading all image data into memory
-final photos = await picker.pickPhotos(context: context);
+final photos = await picker.pickPhotos();
 if (photos != null) {
   for (var photo in photos) {
     // This loads all bytes into memory
@@ -830,7 +659,6 @@ if (photos != null) {
 ```dart
 // ✅ Good - Use load callbacks for better UX
 final photos = await picker.pickPhotos(
-  context: context,
   onLoadStarted: () {
     setState(() => isLoading = true);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -851,11 +679,8 @@ if (photos != null) {
 
 ## ❓ FAQ
 
-**Q: Do I need to request permission on iOS?**
-A: No! PHPicker is privacy-preserving and doesn't require photo library permission. The picker is handled by the system.
-
-**Q: Why do I need to pass BuildContext?**
-A: BuildContext is required for Android to show the picker dialog. iOS doesn't need it but we keep the API consistent.
+**Q: Do I need to request permission?**
+A: No! Both iOS (PHPicker) and Android (file picker) are privacy-preserving and don't require storage permissions. The pickers are handled by the system.
 
 **Q: Can I get the actual creation date on iOS?**
 A: Yes! The plugin now extracts creation dates from EXIF metadata without requiring photo library permission. It reads the date from the image file's metadata (EXIF/TIFF data).
@@ -870,10 +695,7 @@ A: The plugin now uses file paths instead of loading all image data into memory.
 A: Yes! Use `PickerFilter.videos` or `PickerFilter.any` to include videos. The plugin returns video data the same way as images.
 
 **Q: Can I customize the picker UI?**
-A: No. Both PHPicker (iOS) and wechat_assets_picker (Android) use system/native UI for consistency and security.
-
-**Q: Why doesn't the permission status update after I change it in Android settings?**
-A: On Android 14+ (API 34+), the permission state is cached by the Android system in the app's process memory. After changing permissions in system settings, you must completely close and reopen the app for the new permission state to be retrieved. This is standard Android behavior, not a plugin limitation. The app needs to be terminated (force stopped or swiped away from recent apps) and relaunched to see the updated permission state.
+A: No. Both platforms use system/native UI for consistency, security, and privacy.
 
 **Q: How do I show a loading indicator while photos are being processed?**
 A: Use the `onLoadStarted` and `onLoadEnded` callbacks when calling `pickPhotos()` or `pickSinglePhoto()`. These callbacks notify you when processing begins and ends, perfect for showing/hiding loading indicators.
@@ -898,26 +720,11 @@ A: Always prefer `filePath` for better memory management. The `imageData` field 
 
 ### Android Issues
 
-**"Permission denied"**
-- Ensure permissions are in `AndroidManifest.xml`
-- Check that `compileSdkVersion` is 33 or higher
-- Verify Gradle version is 8.0 or higher
-
-**"Context is required for Android picker"**
-- Always pass `context` parameter: `picker.pickPhotos(context: context)`
-
 **Gradle build errors**
 - Update Gradle to 8.0+
 - Update Android Gradle Plugin to 8.1.0+
 - Ensure `minSdkVersion` is 21 or higher
-
-**Permission status not updating after changing in settings**
-- This is expected Android behavior on Android 14+ (API 34+)
-- The permission state is cached in the app's process memory
-- Solution: Completely close the app (force stop or swipe from recent apps) and reopen it
-- The new permission state will be retrieved when the app restarts
-- This affects the `checkPhotoAccessStatus()` method
-- The picker itself will still work, but the status check will show the cached state
+- Check that `compileSdkVersion` is 33 or higher
 
 ## 🤝 Contributing
 

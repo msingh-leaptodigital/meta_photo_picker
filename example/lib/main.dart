@@ -65,7 +65,6 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
 
       final photos = await _metaPhotoPickerPlugin.pickPhotos(
         config: config,
-        context: context, // Pass context for Android
         onLoadStarted: () {
           debugPrint('🔄 onLoadStarted callback received');
           if (mounted) {
@@ -144,7 +143,6 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
 
       final photo = await _metaPhotoPickerPlugin.pickSinglePhoto(
         config: config,
-        context: context, // Pass context for Android
         onLoadStarted: () {
           debugPrint('🔄 onLoadStarted callback received');
           if (mounted) {
@@ -255,11 +253,8 @@ class _PhotoPickerDemoState extends State<PhotoPickerDemo> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final status = await _metaPhotoPickerPlugin.checkPhotoAccessStatus();
-          debugPrint('📸 Photo access status F: $status');
-        },
-        child: const Icon(Icons.photo_library),
+        onPressed: _pickPhotos,
+        child: const Icon(Icons.add_photo_alternate),
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),

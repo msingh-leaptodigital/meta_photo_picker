@@ -1,5 +1,5 @@
 name: meta_photo_picker
-description: A privacy-first Flutter plugin for picking photos with detailed metadata. Uses PHPicker on iOS (no permission required) and wechat_assets_picker on Android.
+description: A privacy-first Flutter plugin for picking image files with detailed metadata. Uses native file pickers with image filtering on both iOS and Android (no permissions required).
 version: 0.0.3
 homepage: https://github.com/manveer-logiciel/meta_photo_picker
 repository: https://github.com/manveer-logiciel/meta_photo_picker
@@ -19,10 +19,6 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
-  wechat_assets_picker: ^10.0.0
-  photo_manager: ^3.5.0
-  permission_handler: ^11.3.1
-  device_info_plus: ^11.1.1
   path: ^1.8.0
 
 dev_dependencies:
